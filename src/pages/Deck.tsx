@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FEATURED_LESSON_ID, SERIES, SUITS, canWatch, lessonById, type SuitId } from '../content';
-import { useStore } from '../store';
+import { effectiveTier, useStore } from '../store';
 import { Link } from '../router';
 import { MiniCard, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
@@ -8,7 +8,7 @@ import { PageHeader, SuitFilter } from '../components/AppShell';
 
 export function Deck() {
   const { state } = useStore();
-  const tier = state.member!.tier;
+  const tier = effectiveTier(state.member);
   const [filter, setFilter] = useState<SuitId | 'all'>('all');
   const [open, setOpen] = useState<string[]>(() => [lessonById(FEATURED_LESSON_ID)!.seriesId]);
   const toggleOpen = (id: string) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));

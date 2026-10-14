@@ -1,16 +1,22 @@
-import { useState } from 'react';
-import { LESSONS, SUITS, TIERS, lessonById, suitById, tierById } from '../content';
+import { useEffect, useState } from 'react';
+import { LESSONS, SUITS, TIERS, lessonById, suitById, tierById, type Tier } from '../content';
 import { useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
+import type { AdminMemberRow } from '../supabase';
 
 export function You() {
   const { state, actions } = useStore();
   const { navigate } = useRouter();
   const member = state.member!;
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const entries = Object.values(state.mirror).sort((a, b) => b.savedAt - a.savedAt);
   const joined = new Date(member.joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  const signOut = async () => {
+    await actions.signOut();
+    navigate('/');
+  };
 
   return (
     <div className="stack-24">
@@ -18,9 +24,11 @@ export function You() {
         <Avatar name={member.name} size={64} />
         <div className="stack-4">
           <h1 className="display-l">{member.name}</h1>
-          <p className="muted small">{tierById(member.tier).name} · member since {joined}</p>
+          <p className="muted small">{member.isAdmin ? 'Jack (admin)' : tierById(member.tier).name} · member since {joined}</p>
         </div>
       </header>
+
+      {member.isAdmin && <Members />}
 
       <section className="stack-10" aria-labelledby="progress-title">
         <h2 id="progress-title" className="display-s">Your progress</h2>
@@ -65,32 +73,116 @@ export function You() {
         )}
       </section>
 
-      <section className="stack-10" aria-labelledby="plan-title">
-        <h2 id="plan-title" className="display-s">Your hand</h2>
-        <fieldset className="tier-picker">
-          <legend className="small muted">Change plan (demo, no payment)</legend>
-          {TIERS.map((t) => (
-            <label key={t.id} className={`tier-option ${member.tier === t.id ? 'is-on' : ''}`}>
-              <input type="radio" name="plan-tier" id={`plan-tier-${t.id}`} value={t.id} checked={member.tier === t.id} onChange={() => actions.setTier(t.id)} />
-              <span className="tier-option__name">{t.name}</span>
-              <span className="tier-option__price">{t.price}{t.per}</span>
-            </label>
-          ))}
-        </fieldset>
-      </section>
-
-      <section className="card stack-10">
-        <p className="strong">Start the demo again</p>
-        <p className="muted small">Clears your progress, answers, posts and bookings in this browser.</p>
-        {confirmReset ? (
-          <div className="row-wrap">
-            <button type="button" className="btn btn--accent btn--sm" onClick={() => { actions.reset(); navigate('/'); }}>Clear everything</button>
-            <button type="button" className="btn btn--outline btn--sm" onClick={() => setConfirmReset(false)}>Keep it</button>
+      {!member.isAdmin && (
+        <section className="stack-10" aria-labelledby="plan-title">
+          <h2 id="plan-title" className="display-s">Your hand</h2>
+          <div className="card stack-10">
+            <p><strong>{tierById(member.tier).name}</strong> <span className="muted">· {tierById(member.tier).price}{tierById(member.tier).per}</span></p>
+            {member.requestedTier && member.requestedTier !== member.tier && member.requestedTier !== 'open' ? (
+              <p className="small muted">You're on the list for {tierById(member.requestedTier).name}. Payments open soon, founding members first.</p>
+            ) : (
+              member.tier !== 'ace' && (
+                <div className="row-wrap">
+                  {TIERS.filter((t) => t.id !== 'open' && t.id !== member.tier).map((t) => (
+                    <button key={t.id} type="button" className="btn btn--outline btn--sm" onClick={async () => {
+                      const err = await actions.requestTier(t.id);
+                      if (!err) actions.notify('ok', `You're on the list for ${t.name}.`);
+                    }}>
+                      Join the {t.name} list
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
           </div>
-        ) : (
-          <button type="button" className="btn btn--outline btn--sm self-start" onClick={() => setConfirmReset(true)}>Reset demo</button>
-        )}
+        </section>
+      )}
+
+      <section className="stack-10" aria-labelledby="account-title">
+        <h2 id="account-title" className="display-s">Account</h2>
+        <div className="card stack-12">
+          <div className="stack-2">
+            <span className="small muted">Signed in as</span>
+            <span className="selectable">{member.email}</span>
+          </div>
+          <div className="row-wrap">
+            <button type="button" className="btn btn--outline btn--sm" onClick={signOut}>Sign out</button>
+            {!member.isAdmin && (
+              confirmDelete ? null : <button type="button" className="link-btn small" onClick={() => setConfirmDelete(true)}>Close my account</button>
+            )}
+          </div>
+          {confirmDelete && (
+            <div className="stack-8">
+              <p className="strong">Close your account for good?</p>
+              <p className="small muted">This removes your progress, Mirror answers, posts and any booked call. It can't be undone.</p>
+              <div className="row-wrap">
+                <button type="button" className="btn btn--accent btn--sm" onClick={async () => {
+                  const err = await actions.deleteAccount();
+                  if (!err) navigate('/');
+                }}>Close my account</button>
+                <button type="button" className="btn btn--outline btn--sm" onClick={() => setConfirmDelete(false)}>Keep it</button>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
     </div>
+  );
+}
+
+/** Jack only: everyone who has joined, what they asked for, and their plan. */
+function Members() {
+  const { state, actions } = useStore();
+  const [rows, setRows] = useState<AdminMemberRow[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    actions.adminMembers().then((r) => live && setRows(r ?? []));
+    return () => { live = false; };
+  }, [actions]);
+
+  const change = async (id: string, tier: Tier) => {
+    const err = await actions.setMemberTier(id, tier);
+    if (!err) {
+      setRows((list) => (list ?? []).map((r) => (r.id === id ? { ...r, tier } : r)));
+      actions.notify('ok', 'Plan updated.');
+    }
+  };
+
+  const waiting = (rows ?? []).filter((r) => r.requested_tier && r.requested_tier !== 'open' && r.requested_tier !== r.tier).length;
+
+  return (
+    <section className="stack-10" aria-labelledby="members-title">
+      <div className="row-between">
+        <h2 id="members-title" className="display-s">Members</h2>
+        {rows && <span className="small muted">{rows.length} joined · {waiting} waiting to upgrade</span>}
+      </div>
+      {rows === null && <p className="muted small">Loading members…</p>}
+      {rows && (
+        <div className="table-scroll">
+          <table className="members">
+            <thead>
+              <tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Asked for</th><th scope="col">Plan</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.name}{r.id === state.member?.id && <span className="muted"> (you)</span>}</td>
+                  <td className="selectable">{r.email}</td>
+                  <td>{r.requested_tier ? tierById(r.requested_tier).name : '—'}</td>
+                  <td>
+                    <label className="sr-only" htmlFor={`plan-${r.id}`}>Plan for {r.name}</label>
+                    <select id={`plan-${r.id}`} className="select" value={r.tier} onChange={(e) => change(r.id, e.target.value as Tier)}>
+                      {TIERS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="small muted">Until payments are live, upgrade founding members here after they've paid you.</p>
+    </section>
   );
 }

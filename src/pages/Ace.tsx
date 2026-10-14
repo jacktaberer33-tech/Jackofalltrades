@@ -1,19 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CALL_TIMES, tierById } from '../content';
-import { useStore } from '../store';
+import { useStore, type Booking } from '../store';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/AppShell';
-import { fmtDayLong, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays } from '../dates';
+import { fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays } from '../dates';
 
 export function Ace() {
   const { state, actions } = useStore();
   const member = state.member!;
-  const now = new Date();
-  const booking = state.booking && state.booking.date >= toISODate(now) ? state.booking : null;
+  const today = toISODate(new Date());
+  const booking = state.bookings.find((b) => b.date >= today) ?? null;
   const [editing, setEditing] = useState(false);
+
+  if (member.isAdmin) return <JacksCalls />;
 
   if (member.tier !== 'ace') {
     const ace = tierById('ace');
+    const onList = member.requestedTier === 'ace';
     return (
       <div className="stack-16">
         <PageHeader title="Your 1:1" sub="Monthly calls with Jack are part of Ace." />
@@ -23,7 +26,14 @@ export function Ace() {
           <ul className="ticks ticks--on-block">
             {ace.perks.map((p) => <li key={p}><Icon name="check" size={18} />{p}</li>)}
           </ul>
-          <button type="button" className="btn btn--accent self-start" onClick={() => actions.setTier('ace')}>Switch to Ace (demo)</button>
+          {onList ? (
+            <p className="on-block-muted"><Icon name="check" size={14} /> You're on the list. Ace places open with payments, founding members first.</p>
+          ) : (
+            <button type="button" className="btn btn--accent self-start" onClick={async () => {
+              const err = await actions.requestTier('ace');
+              if (!err) actions.notify('ok', "You're on the list for Ace.");
+            }}>Put me on the Ace list</button>
+          )}
         </section>
       </div>
     );
@@ -33,47 +43,43 @@ export function Ace() {
     <div className="stack-16">
       <PageHeader title="Your 1:1" aside={<span className="pill">A{'♠︎'} Ace member</span>} />
       <section className="feature feature--static stack-8">
-        <p className="body-l">45 minutes with Jack, once a month. Bring the thing you can't say anywhere else.</p>
+        <p className="body-l on-block">45 minutes with Jack, once a month. Bring the thing you can't say anywhere else.</p>
         <p className="mono small on-block-muted">
-          {booking ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked` : `1 call left in ${fmtMonth(now)}`}
+          {booking ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked` : 'One call a month · weekdays'}
         </p>
       </section>
 
       {booking && !editing ? (
-        <Booked onChange={() => setEditing(true)} />
+        <Booked booking={booking} onChange={() => setEditing(true)} />
       ) : (
-        <BookingForm
-          initialDate={booking?.date}
-          initialTime={booking?.time}
-          initialTopic={booking?.topic}
-          onDone={() => setEditing(false)}
-          onCancelEdit={booking ? () => setEditing(false) : undefined}
-        />
+        <BookingForm existing={booking} onDone={() => setEditing(false)} />
       )}
     </div>
   );
 }
 
-function Booked({ onChange }: { onChange: () => void }) {
-  const { state, actions } = useStore();
-  const booking = state.booking!;
+function Booked({ booking, onChange }: { booking: Booking; onChange: () => void }) {
+  const { actions } = useStore();
   const [confirming, setConfirming] = useState(false);
+  const isToday = booking.date === toISODate(new Date());
   return (
     <section className="card card--edge stack-12" aria-labelledby="booked-title">
       <p className="eyebrow accent-text strong">Booked</p>
       <h2 id="booked-title" className="display-m">{fmtDayLong(fromISODate(booking.date))} at {booking.time}</h2>
-      <p className="muted small">Video call · 45 minutes · the link arrives by email the day before.</p>
+      <p className="muted small">Video call · 45 minutes · Jack sends the link the day before.</p>
       {booking.topic && (
         <div className="quote">
           <p className="label">You want to talk about</p>
           <p>{booking.topic}</p>
         </div>
       )}
-      {confirming ? (
+      {isToday ? (
+        <p className="small muted">Your call is today. Need to move it? Message Jack directly.</p>
+      ) : confirming ? (
         <div className="stack-8">
-          <p className="strong">Cancel this call? You can book another time this month.</p>
+          <p className="strong">Cancel this call? You can book another time.</p>
           <div className="row-wrap">
-            <button type="button" className="btn btn--accent btn--sm" onClick={actions.cancelBooking}>Cancel the call</button>
+            <button type="button" className="btn btn--accent btn--sm" onClick={() => actions.cancelBooking(booking.id)}>Cancel the call</button>
             <button type="button" className="btn btn--outline btn--sm" onClick={() => setConfirming(false)}>Keep it</button>
           </div>
         </div>
@@ -87,24 +93,43 @@ function Booked({ onChange }: { onChange: () => void }) {
   );
 }
 
-function BookingForm({ initialDate, initialTime, initialTopic, onDone, onCancelEdit }: {
-  initialDate?: string;
-  initialTime?: string;
-  initialTopic?: string;
-  onDone: () => void;
-  onCancelEdit?: () => void;
-}) {
+function BookingForm({ existing, onDone }: { existing: Booking | null; onDone: () => void }) {
   const { actions } = useStore();
-  const days = useMemo(() => upcomingWeekdays(new Date(), 8), []);
-  const [date, setDate] = useState<string>(initialDate ?? toISODate(days[0]));
-  const [time, setTime] = useState<string | null>(initialTime ?? null);
-  const [topic, setTopic] = useState(initialTopic ?? '');
+  const days = useMemo(() => upcomingWeekdays(new Date(), 10), []);
+  const [date, setDate] = useState<string>(existing?.date ?? toISODate(days[0]));
+  const [time, setTime] = useState<string | null>(existing?.time ?? null);
+  const [topic, setTopic] = useState(existing?.topic ?? '');
+  const [taken, setTaken] = useState<Set<string> | null>(null);
+  const [busy, setBusy] = useState(false);
   const months = Array.from(new Set(days.map((d) => fmtMonth(d)))).join(' – ');
+  const key = (d: string, t: string) => `${d} ${t}`;
+  const mine = existing ? key(existing.date, existing.time) : null;
 
-  const book = () => {
+  useEffect(() => {
+    let live = true;
+    actions.takenSlots(toISODate(days[0]), toISODate(days[days.length - 1])).then((slots) => {
+      if (live) setTaken(new Set(slots.map((s) => key(s.date, s.time)).filter((k) => k !== mine)));
+    });
+    return () => { live = false; };
+  }, [actions, days, mine]);
+
+  const isTaken = (d: string, t: string) => taken?.has(key(d, t)) ?? false;
+  const dayFull = (d: string) => CALL_TIMES.every((t) => isTaken(d, t));
+
+  const book = async () => {
     if (!time) return;
-    actions.book({ date, time, topic });
-    onDone();
+    setBusy(true);
+    const err = existing ? await actions.moveBooking(existing.id, date, time, topic) : await actions.book(date, time, topic);
+    setBusy(false);
+    if (!err) {
+      actions.notify('ok', existing ? 'Call moved.' : 'Booked. See you then.');
+      onDone();
+    } else {
+      // Someone may have just taken it: refresh what's free.
+      const slots = await actions.takenSlots(toISODate(days[0]), toISODate(days[days.length - 1]));
+      setTaken(new Set(slots.map((s) => key(s.date, s.time)).filter((k) => k !== mine)));
+      setTime(null);
+    }
   };
 
   const chosen = fromISODate(date);
@@ -116,8 +141,9 @@ function BookingForm({ initialDate, initialTime, initialTopic, onDone, onCancelE
         <div className="day-grid">
           {days.map((d) => {
             const iso = toISODate(d);
+            const full = dayFull(iso);
             return (
-              <button key={iso} type="button" className="day" aria-pressed={iso === date} aria-label={fmtDayLong(d)} onClick={() => setDate(iso)}>
+              <button key={iso} type="button" className="day" aria-pressed={iso === date} disabled={full} aria-label={`${fmtDayLong(d)}${full ? ', fully booked' : ''}`} onClick={() => { setDate(iso); setTime(null); }}>
                 <span className="day__dow">{fmtDayShort(d)}</span>
                 <span className="day__num">{d.getDate()}</span>
               </button>
@@ -127,23 +153,71 @@ function BookingForm({ initialDate, initialTime, initialTopic, onDone, onCancelE
       </div>
 
       <div className="stack-8" role="group" aria-labelledby="time-label">
-        <p id="time-label" className="label">Pick a time</p>
+        <p id="time-label" className="label">Pick a time {taken === null && <span className="muted">· checking what's free…</span>}</p>
         <div className="time-grid">
-          {CALL_TIMES.map((t) => (
-            <button key={t} type="button" className="time" aria-pressed={t === time} onClick={() => setTime(t)}>{t}</button>
-          ))}
+          {CALL_TIMES.map((t) => {
+            const gone = isTaken(date, t);
+            return (
+              <button key={t} type="button" className="time" aria-pressed={t === time} disabled={gone || taken === null} aria-label={gone ? `${t}, taken` : t} onClick={() => setTime(t)}>
+                {gone ? <s>{t}</s> : t}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="field">
         <label htmlFor="call-topic" className="label">What do you want to talk about?</label>
-        <textarea id="call-topic" className="input textarea" rows={3} placeholder="No need to tidy it up." value={topic} onChange={(e) => setTopic(e.target.value)} />
+        <textarea id="call-topic" className="input textarea" rows={3} maxLength={1000} placeholder="No need to tidy it up." value={topic} onChange={(e) => setTopic(e.target.value)} />
       </div>
 
-      <button type="button" className="btn btn--accent btn--block btn--lg" disabled={!time} onClick={book}>
-        {time ? `Book ${fmtDayShort(chosen)} ${chosen.getDate()} ${chosen.toLocaleDateString('en-GB', { month: 'short' })} at ${time}` : 'Pick a time to book'}
+      <button type="button" className="btn btn--accent btn--block btn--lg" disabled={!time || busy} onClick={book}>
+        {busy ? 'Booking…' : time ? `${existing ? 'Move to' : 'Book'} ${fmtDayShort(chosen)} ${chosen.getDate()} ${chosen.toLocaleDateString('en-GB', { month: 'short' })} at ${time}` : 'Pick a time to book'}
       </button>
-      {onCancelEdit && <button type="button" className="link-btn small center" onClick={onCancelEdit}>Keep my current time</button>}
+      {existing && <button type="button" className="link-btn small center" onClick={onDone}>Keep my current time</button>}
+    </div>
+  );
+}
+
+/** Jack's view: every upcoming call, with who booked it and what they want to talk about. */
+function JacksCalls() {
+  const { actions } = useStore();
+  const [calls, setCalls] = useState<Booking[] | null>(null);
+  const [names, setNames] = useState<Record<string, { name: string; email: string }>>({});
+  const today = toISODate(new Date());
+
+  useEffect(() => {
+    let live = true;
+    Promise.all([actions.adminUpcomingCalls(today), actions.adminMembers()]).then(([c, m]) => {
+      if (!live) return;
+      setCalls(c ?? []);
+      const map: Record<string, { name: string; email: string }> = {};
+      for (const row of m ?? []) map[row.id] = { name: row.name, email: row.email };
+      setNames(map);
+    });
+    return () => { live = false; };
+  }, [actions, today]);
+
+  return (
+    <div className="stack-16">
+      <PageHeader title="1:1 calls" sub="Every upcoming call with an Ace member." />
+      {calls === null && <p className="muted">Loading calls…</p>}
+      {calls?.length === 0 && (
+        <section className="card stack-8">
+          <p className="strong">No calls booked yet.</p>
+          <p className="muted small">When Ace members book, their calls show up here with what they want to talk about.</p>
+        </section>
+      )}
+      {calls?.map((c) => (
+        <section key={c.id} className="card stack-8">
+          <div className="row-between">
+            <p className="strong">{fmtDayMonth(fromISODate(c.date))} · {c.time}</p>
+            <span className="small muted">{names[c.memberId]?.name ?? 'Member'}</span>
+          </div>
+          {names[c.memberId]?.email && <p className="small muted mono selectable">{names[c.memberId].email}</p>}
+          {c.topic && <p className="quote">{c.topic}</p>}
+        </section>
+      ))}
     </div>
   );
 }

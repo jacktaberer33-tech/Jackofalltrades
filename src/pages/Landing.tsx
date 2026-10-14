@@ -1,9 +1,25 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { SUITS, TIERS, tierById, type Tier } from '../content';
 import { useStore } from '../store';
 import { useRouter } from '../router';
 import { CardFace, LogoMark, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
+import { AuthSheet, type AuthMode } from '../components/AuthSheet';
+
+// Captured before Supabase tidies the address bar: true when this visit came from a sign-up confirmation link.
+let arrivedFromEmail = (() => {
+  try {
+    const h = window.location.hash;
+    return h.includes('access_token=') && !h.includes('type=recovery');
+  } catch {
+    return false;
+  }
+})();
+function consumeEmailArrival(): boolean {
+  const v = arrivedFromEmail;
+  arrivedFromEmail = false;
+  return v;
+}
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -12,10 +28,30 @@ function scrollToId(id: string) {
 export function Landing() {
   const { state, actions } = useStore();
   const { navigate } = useRouter();
-  const [joining, setJoining] = useState<Tier | null>(null);
+  const [auth, setAuth] = useState<{ mode: AuthMode; tier: Tier } | null>(null);
+  const [openWhenReady, setOpenWhenReady] = useState(false);
+  const member = state.member;
+
+  // After signing in (or arriving from an email link), go straight into the app once the profile loads.
+  useEffect(() => {
+    if (member && (openWhenReady || consumeEmailArrival())) navigate('/app');
+  }, [member, openWhenReady, navigate]);
 
   const signIn = () => {
-    if (!state.member) actions.signInDemo();
+    if (member) navigate('/app');
+    else setAuth({ mode: 'signin', tier: 'deck' });
+  };
+
+  // Joining from any button: new visitors sign up; existing members just ask for that plan.
+  const join = async (tier: Tier) => {
+    if (!member) {
+      setAuth({ mode: 'signup', tier });
+      return;
+    }
+    if (tier !== 'open' && tier !== member.tier) {
+      const err = await actions.requestTier(tier);
+      if (!err) actions.notify('ok', `Noted. You're on the list for ${tierById(tier).name}.`);
+    }
     navigate('/app');
   };
 
@@ -31,7 +67,7 @@ export function Landing() {
             <button type="button" className="link-btn" onClick={() => scrollToId('how')}>How it works</button>
             <button type="button" className="link-btn" onClick={() => scrollToId('tiers')}>Membership</button>
             <button type="button" className="btn btn--outline btn--sm" onClick={signIn}>
-              {state.member ? 'Open the app' : 'Sign in'}
+              {member ? 'Open the app' : 'Sign in'}
             </button>
           </nav>
         </div>
@@ -49,7 +85,7 @@ export function Landing() {
               I'm still not sure about) and ask you one honest question back.
             </p>
             <div className="row-wrap">
-              <button type="button" className="btn btn--accent btn--lg" onClick={() => setJoining('deck')}>Become a founding member</button>
+              <button type="button" className="btn btn--accent btn--lg" onClick={() => join('deck')}>Become a founding member</button>
               <button type="button" className="btn btn--outline btn--lg" onClick={() => scrollToId('how')}>See how it works</button>
             </div>
             <p className="small muted">Free to start. Cancel any time.</p>
@@ -137,8 +173,8 @@ export function Landing() {
                 </ul>
                 <button
                   type="button"
-                  className={`btn btn--block ${t.id === 'deck' ? 'btn--accent' : t.id === 'open' ? 'btn--outline' : 'btn--outline'}`}
-                  onClick={() => setJoining(t.id)}
+                  className={`btn btn--block ${t.id === 'deck' ? 'btn--accent' : 'btn--outline'}`}
+                  onClick={() => join(t.id)}
                 >
                   {t.id === 'open' ? 'Start free' : t.id === 'deck' ? 'Join the Full Deck' : 'Go Ace'}
                 </button>
@@ -173,7 +209,7 @@ export function Landing() {
             <h2 className="display-l">Pull up a chair.</h2>
             <p className="lede lede--on-accent">Founding places close at 50 members.</p>
           </div>
-          <button type="button" className="btn btn--light btn--lg" onClick={() => setJoining('deck')}>Become a founding member</button>
+          <button type="button" className="btn btn--light btn--lg" onClick={() => join('deck')}>Become a founding member</button>
         </div>
       </section>
 
@@ -185,62 +221,7 @@ export function Landing() {
         </div>
       </footer>
 
-      {joining && <JoinSheet initialTier={joining} onClose={() => setJoining(null)} />}
-    </div>
-  );
-}
-
-function JoinSheet({ initialTier, onClose }: { initialTier: Tier; onClose: () => void }) {
-  const { actions } = useStore();
-  const { navigate } = useRouter();
-  const [tier, setTier] = useState<Tier>(initialTier);
-  const [name, setName] = useState('');
-  const nameRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    actions.join(name, tier);
-    navigate('/app');
-  };
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
-  };
-
-  const chosen = tierById(tier);
-
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="join-title" onClick={(e) => e.stopPropagation()} onKeyDown={onKeyDown}>
-        <div className="sheet__head">
-          <h2 id="join-title" className="display-m">Take a seat</h2>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
-        </div>
-        <form className="stack-20" onSubmit={submit}>
-          <fieldset className="tier-picker">
-            <legend className="label">Your hand</legend>
-            {TIERS.map((t) => (
-              <label key={t.id} className={`tier-option ${tier === t.id ? 'is-on' : ''}`}>
-                <input type="radio" name="join-tier" id={`join-tier-${t.id}`} value={t.id} checked={tier === t.id} onChange={() => setTier(t.id)} />
-                <span className="tier-option__name">{t.name}</span>
-                <span className="tier-option__price">{t.price}{t.per}</span>
-              </label>
-            ))}
-          </fieldset>
-          <div className="field">
-            <label htmlFor="join-name" className="label">Your first name</label>
-            <input ref={nameRef} id="join-name" className="input" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="So I know what to call you" />
-          </div>
-          <button type="submit" className="btn btn--accent btn--block btn--lg">
-            {tier === 'open' ? 'Start free' : `Join ${chosen.name} · ${chosen.price}${chosen.per}`}
-          </button>
-          <p className="small muted center">Demo only. No payment is taken.</p>
-        </form>
-      </div>
+      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={() => setOpenWhenReady(true)} />}
     </div>
   );
 }

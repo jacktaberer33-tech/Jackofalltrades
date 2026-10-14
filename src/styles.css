@@ -521,15 +521,6 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Member app shell ---------- */
 .shell__main { max-width: 640px; margin-inline: auto; padding-inline: 16px; padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
-.demo-bar {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  text-align: center;
-  padding-block: 10px;
-  border-bottom: 1px dashed var(--line-strong);
-}
 .page { padding-top: 16px; }
 .page-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; }
 
@@ -737,6 +728,78 @@ button { font: inherit; color: inherit; }
 .journal { display: flex; flex-direction: column; gap: 6px; text-decoration: none; }
 .journal__q { font-weight: 600; }
 .journal__a { color: var(--ink-soft); line-height: 1.5; overflow-wrap: anywhere; }
+
+/* ---------- Auth, toasts, misc ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.selectable { user-select: text; overflow-wrap: anywhere; }
+.on-block { color: var(--block-ink); }
+.note { background: var(--paper); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 12px; }
+.form-error { color: var(--accent-text); font-weight: 600; font-size: 15px; }
+.check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.select {
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+.toast-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(440px, calc(100% - 32px));
+  pointer-events: none;
+}
+.toast {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px var(--shadow);
+}
+.toast--error { background: var(--accent); color: var(--on-accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: toast-in 0.25s ease-out both; }
+}
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (min-width: 960px) { .toast-wrap { bottom: 24px; } }
+
+.splash { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .splash .logo-mark { animation: pulse 1.2s ease-in-out infinite; }
+}
+@keyframes pulse { 50% { transform: scale(1.12) rotate(-6deg); } }
+
+/* Replies */
+.chip--on-block { background: transparent; color: var(--block-ink); border-color: var(--block-muted); }
+.chip--on-block[aria-pressed="true"] { background: var(--block-ink); color: var(--block); border-color: var(--block-ink); }
+.post--pinned .link-btn { color: var(--block-ink); }
+.replies { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.replies--on-block { border-top-color: var(--block-line); }
+.reply { display: flex; align-items: flex-start; gap: 10px; }
+.reply__text { font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.reply-form { display: flex; gap: 8px; align-items: center; }
+.reply-form .input { min-height: 44px; padding-block: 8px; }
+.replies--on-block .input { background: var(--surface); color: var(--ink); }
+
+/* Disabled booking slots */
+.day:disabled, .time:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Jack's member list */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.members { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+.members th, .members td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.members th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.members tr:last-child td { border-bottom: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }

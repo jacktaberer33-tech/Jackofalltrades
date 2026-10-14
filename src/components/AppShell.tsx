@@ -3,6 +3,7 @@ import { Link, useRouter, type Route } from '../router';
 import { Icon, type IconName } from './Icon';
 import { LogoMark } from './Cards';
 import { SUITS, type SuitId } from '../content';
+import { useStore } from '../store';
 
 const NAV: { to: string; label: string; icon: IconName; match: Route['name'][]; railOnly?: boolean }[] = [
   { to: '/app', label: 'Home', icon: 'home', match: ['home'] },
@@ -35,7 +36,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="shell__main">
-        <p className="demo-bar">Demo · example lessons and members · saved in this browser</p>
         <main className="page">{children}</main>
       </div>
 
@@ -76,5 +76,28 @@ export function PageHeader({ title, sub, aside }: { title: string; sub?: string;
       </div>
       {aside}
     </header>
+  );
+}
+
+export function Toast() {
+  const { state } = useStore();
+  const n = state.notice;
+  return (
+    <div className="toast-wrap" aria-live="polite" role="status">
+      {n && (
+        <p key={n.id} className={`toast ${n.kind === 'error' ? 'toast--error' : ''}`}>
+          {n.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function Splash() {
+  return (
+    <div className="splash" aria-busy="true">
+      <LogoMark />
+      <span className="sr-only">Loading</span>
+    </div>
   );
 }
