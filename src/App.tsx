@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { StoreProvider, useStore } from './store';
+import { StoreProvider, isPaying, useStore } from './store';
+import { tierById } from './content';
 import { RouterProvider, useRouter } from './router';
 import { AppShell, Splash, Toast } from './components/AppShell';
 import { AuthSheet } from './components/AuthSheet';
@@ -20,6 +21,31 @@ function Screens() {
   useEffect(() => {
     if (state.status === 'signedOut' && needsMember) navigate('/');
   }, [state.status, needsMember, navigate]);
+
+  // Back from Stripe Checkout: the plan changes when Stripe tells the server, usually within seconds.
+  const signedIn = state.status === 'signedIn';
+  useEffect(() => {
+    if (!signedIn) return;
+    let search = '';
+    try { search = window.location.search; } catch { /* ignore */ }
+    if (!search.includes('checkout=success')) return;
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* ignore */ }
+    actions.notify('ok', 'Payment received. Setting up your plan…');
+    let tries = 0;
+    let stopped = false;
+    const check = async () => {
+      if (stopped) return;
+      const m = await actions.refreshProfile();
+      if (m && isPaying(m)) {
+        actions.notify('ok', `Welcome to the ${tierById(m.tier).name}.`);
+        return;
+      }
+      if (++tries < 15) window.setTimeout(check, 2000);
+      else actions.notify('error', 'Your payment went through but your plan is taking a while. Refresh in a minute, or message Jack.');
+    };
+    void check();
+    return () => { stopped = true; };
+  }, [signedIn, actions]);
 
   let content;
   if (state.status === 'loading' && needsMember) {

@@ -22,6 +22,13 @@ export interface Member {
   requestedTier: Tier | null;
   isAdmin: boolean;
   joinedAt: number;
+  /** Stripe subscription, when they pay for a plan. */
+  billing: {
+    hasAccount: boolean;
+    status: string | null; // active, trialing, past_due, canceled…
+    renewsOn: number | null;
+    endsAtPeriodEnd: boolean;
+  };
 }
 
 export interface MirrorEntry {
@@ -113,7 +120,32 @@ const toMember = (p: ProfileRow, email: string): Member => ({
   requestedTier: p.requested_tier,
   isAdmin: p.is_admin,
   joinedAt: Date.parse(p.created_at),
+  billing: {
+    hasAccount: !!p.stripe_customer_id,
+    status: p.subscription_status,
+    renewsOn: p.current_period_end ? Date.parse(p.current_period_end) : null,
+    endsAtPeriodEnd: p.cancel_at_period_end,
+  },
 });
+
+/** True while a member has a subscription Stripe is still charging (or retrying). */
+export function isPaying(member: Member | null): boolean {
+  return !!member && ['active', 'trialing', 'past_due'].includes(member.billing.status ?? '');
+}
+
+async function functionError(error: unknown): Promise<string> {
+  // supabase.functions.invoke puts the response on error.context for non-2xx replies.
+  const ctx = (error as { context?: Response })?.context;
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const body = (await ctx.json()) as { error?: string };
+      if (body?.error) return body.error;
+    } catch {
+      // not JSON
+    }
+  }
+  return friendlyError(error as { message?: string });
+}
 
 const toPost = (r: PostRow): Post => ({
   id: r.id,
@@ -288,6 +320,36 @@ function useStoreValue() {
       const { error } = await supabase.from('profiles').update({ name: name.trim() }).eq('id', uid());
       if (error) return fail(error);
       setState((s) => (s.member ? { ...s, member: { ...s.member, name: name.trim() } } : s));
+      return null;
+    },
+
+    async refreshProfile(): Promise<Member | null> {
+      const { data: auth } = await supabase.auth.getUser();
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', uid()).single();
+      if (error || !data) return null;
+      const member = toMember(data as ProfileRow, auth.user?.email ?? stateRef.current.member?.email ?? '');
+      setState((s) => ({ ...s, member }));
+      return member;
+    },
+    /** Sends the member to Stripe Checkout (or the billing portal if they already pay). */
+    async startCheckout(plan: 'deck' | 'ace'): Promise<Err> {
+      const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan } });
+      if (error || !data?.url) {
+        const text = error ? await functionError(error) : 'Checkout did not start. Try again.';
+        notify('error', text);
+        return text;
+      }
+      window.location.assign(data.url as string);
+      return null;
+    },
+    async openBilling(): Promise<Err> {
+      const { data, error } = await supabase.functions.invoke('billing-portal', { body: {} });
+      if (error || !data?.url) {
+        const text = error ? await functionError(error) : 'Billing did not open. Try again.';
+        notify('error', text);
+        return text;
+      }
+      window.location.assign(data.url as string);
       return null;
     },
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SUITS, TIERS, tierById, type Tier } from '../content';
-import { useStore } from '../store';
+import { isPaying, useStore } from '../store';
+import { PAYMENTS_LIVE } from '../config';
 import { useRouter } from '../router';
 import { CardFace, LogoMark, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
@@ -30,12 +31,21 @@ export function Landing() {
   const { navigate } = useRouter();
   const [auth, setAuth] = useState<{ mode: AuthMode; tier: Tier } | null>(null);
   const [openWhenReady, setOpenWhenReady] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<Tier | null>(null);
   const member = state.member;
 
-  // After signing in (or arriving from an email link), go straight into the app once the profile loads.
+  // After signing up for a paid plan, go to checkout; otherwise straight into the app
+  // once the profile loads (also when arriving from an email link).
   useEffect(() => {
-    if (member && (openWhenReady || consumeEmailArrival())) navigate('/app');
-  }, [member, openWhenReady, navigate]);
+    if (!member) return;
+    if (PAYMENTS_LIVE && pendingPlan && pendingPlan !== 'open') {
+      const plan = pendingPlan;
+      setPendingPlan(null);
+      void actions.startCheckout(plan);
+      return;
+    }
+    if (openWhenReady || consumeEmailArrival()) navigate('/app');
+  }, [member, openWhenReady, pendingPlan, navigate, actions]);
 
   const signIn = () => {
     if (member) navigate('/app');
@@ -46,6 +56,10 @@ export function Landing() {
   const join = async (tier: Tier) => {
     if (!member) {
       setAuth({ mode: 'signup', tier });
+      return;
+    }
+    if (PAYMENTS_LIVE && tier !== 'open' && tier !== member.tier && !isPaying(member)) {
+      await actions.startCheckout(tier);
       return;
     }
     if (tier !== 'open' && tier !== member.tier) {
@@ -221,7 +235,7 @@ export function Landing() {
         </div>
       </footer>
 
-      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={() => setOpenWhenReady(true)} />}
+      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={(plan) => { setPendingPlan(plan); setOpenWhenReady(true); }} />}
     </div>
   );
 }

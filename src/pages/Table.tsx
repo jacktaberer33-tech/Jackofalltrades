@@ -4,6 +4,7 @@ import { canPost, useStore, type Post, type Reply } from '../store';
 import { Avatar, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
 import { PageHeader, SuitFilter } from '../components/AppShell';
+import { PlanAction } from '../components/PlanAction';
 import { timeAgo } from '../dates';
 
 export function Table() {
@@ -69,14 +70,7 @@ export function Table() {
         <section className="card card--edge stack-10">
           <p className="strong">Pull up a chair with the Full Deck.</p>
           <p className="muted small">On Open Hand you can read the Table. Posting, replying and "me too" come with the Full Deck.</p>
-          {member.requestedTier === 'deck' || member.requestedTier === 'ace' ? (
-            <p className="small"><Icon name="check" size={14} /> You're on the list for when payments open.</p>
-          ) : (
-            <button type="button" className="btn btn--accent btn--sm self-start" onClick={async () => {
-              const err = await actions.requestTier('deck');
-              if (!err) actions.notify('ok', "You're on the list for the Full Deck.");
-            }}>Put me on the Full Deck list</button>
-          )}
+          <PlanAction plan="deck" />
         </section>
       )}
 

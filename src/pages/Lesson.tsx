@@ -3,6 +3,7 @@ import { canWatch, lessonById, nextLesson, seriesById, suitById } from '../conte
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon, PlayGlyph } from '../components/Icon';
+import { PlanAction } from '../components/PlanAction';
 
 export function Lesson({ id }: { id: string }) {
   const { state, actions } = useStore();
@@ -32,7 +33,6 @@ export function Lesson({ id }: { id: string }) {
   const bookmarked = state.saved.includes(lesson.id);
   const next = nextLesson(lesson);
   const hasText = draft.trim().length > 0;
-  const requested = member.requestedTier === 'deck' || member.requestedTier === 'ace';
 
   const savePrivately = async () => {
     setBusy(true);
@@ -124,16 +124,7 @@ export function Lesson({ id }: { id: string }) {
         <section className="card card--edge stack-12">
           <p className="strong">This lesson is part of the Full Deck.</p>
           <p className="muted">Open Hand gets the first lesson of every suit. The Full Deck unlocks every lesson, the Mirror and the Table.</p>
-          {requested ? (
-            <p className="small"><Icon name="check" size={14} /> You're on the list. Founding members get moved up first when payments open.</p>
-          ) : (
-            <button type="button" className="btn btn--accent self-start" onClick={async () => {
-              const err = await actions.requestTier('deck');
-              if (!err) actions.notify('ok', "You're on the list for the Full Deck.");
-            }}>
-              Put me on the Full Deck list
-            </button>
-          )}
+          <PlanAction plan="deck" />
         </section>
       )}
     </div>

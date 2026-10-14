@@ -3,10 +3,11 @@ import { CALL_TIMES, tierById } from '../content';
 import { useStore, type Booking } from '../store';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/AppShell';
+import { PlanAction } from '../components/PlanAction';
 import { fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays } from '../dates';
 
 export function Ace() {
-  const { state, actions } = useStore();
+  const { state } = useStore();
   const member = state.member!;
   const today = toISODate(new Date());
   const booking = state.bookings.find((b) => b.date >= today) ?? null;
@@ -16,7 +17,6 @@ export function Ace() {
 
   if (member.tier !== 'ace') {
     const ace = tierById('ace');
-    const onList = member.requestedTier === 'ace';
     return (
       <div className="stack-16">
         <PageHeader title="Your 1:1" sub="Monthly calls with Jack are part of Ace." />
@@ -26,14 +26,7 @@ export function Ace() {
           <ul className="ticks ticks--on-block">
             {ace.perks.map((p) => <li key={p}><Icon name="check" size={18} />{p}</li>)}
           </ul>
-          {onList ? (
-            <p className="on-block-muted"><Icon name="check" size={14} /> You're on the list. Ace places open with payments, founding members first.</p>
-          ) : (
-            <button type="button" className="btn btn--accent self-start" onClick={async () => {
-              const err = await actions.requestTier('ace');
-              if (!err) actions.notify('ok', "You're on the list for Ace.");
-            }}>Put me on the Ace list</button>
-          )}
+          <PlanAction plan="ace" onBlock />
         </section>
       </div>
     );

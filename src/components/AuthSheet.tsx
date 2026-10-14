@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { TIERS, tierById, type Tier } from '../content';
 import { useStore } from '../store';
+import { PAYMENTS_LIVE } from '../config';
 import { Icon } from './Icon';
 
 export type AuthMode = 'signup' | 'signin' | 'reset' | 'newPassword';
@@ -9,7 +10,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
   mode: AuthMode;
   tier?: Tier;
   onClose: () => void;
-  onSignedIn?: () => void;
+  onSignedIn?: (plan: Tier | null) => void;
 }) {
   const { actions } = useStore();
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -42,7 +43,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
         if (res.error) setError(res.error);
         else if (res.needsConfirm) setDone(`Nearly there. We've sent a link to ${email.trim()}. Open it to finish joining.`);
         else {
-          onSignedIn?.();
+          onSignedIn?.(tier);
           onClose();
         }
       }
@@ -50,7 +51,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
       const err = await actions.signIn(email, password);
       if (err) setError(err);
       else {
-        onSignedIn?.();
+        onSignedIn?.(null);
         onClose();
       }
     } else if (mode === 'reset') {
@@ -75,7 +76,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
   const title = { signup: 'Take a seat', signin: 'Welcome back', reset: 'Reset your password', newPassword: 'Choose a new password' }[mode];
   const chosen = tierById(tier);
   const submitLabel =
-    mode === 'signup' ? (tier === 'open' ? 'Join free' : `Join and request ${chosen.name}`)
+    mode === 'signup' ? (tier === 'open' ? 'Join free' : PAYMENTS_LIVE ? 'Continue to payment' : `Join and request ${chosen.name}`)
     : mode === 'signin' ? 'Sign in'
     : mode === 'reset' ? 'Send reset link'
     : 'Save new password';
@@ -111,7 +112,9 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
                 </fieldset>
                 {tier !== 'open' && (
                   <p className="small muted note">
-                    Payments aren't open yet. You'll start on Open Hand today, and founding members get moved up first when they open.
+                    {PAYMENTS_LIVE
+                      ? `Next you'll pay ${chosen.price}${chosen.per} securely with Stripe. Cancel any time.`
+                      : "Payments aren't open yet. You'll start on Open Hand today, and founding members get moved up first when they open."}
                   </p>
                 )}
                 <div className="field">

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { LESSONS, SUITS, TIERS, lessonById, suitById, tierById, type Tier } from '../content';
-import { useStore } from '../store';
+import { PAYMENTS_LIVE } from '../config';
+import { PlanAction } from '../components/PlanAction';
+import { isPaying, useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
 import type { AdminMemberRow } from '../supabase';
@@ -73,30 +75,7 @@ export function You() {
         )}
       </section>
 
-      {!member.isAdmin && (
-        <section className="stack-10" aria-labelledby="plan-title">
-          <h2 id="plan-title" className="display-s">Your hand</h2>
-          <div className="card stack-10">
-            <p><strong>{tierById(member.tier).name}</strong> <span className="muted">· {tierById(member.tier).price}{tierById(member.tier).per}</span></p>
-            {member.requestedTier && member.requestedTier !== member.tier && member.requestedTier !== 'open' ? (
-              <p className="small muted">You're on the list for {tierById(member.requestedTier).name}. Payments open soon, founding members first.</p>
-            ) : (
-              member.tier !== 'ace' && (
-                <div className="row-wrap">
-                  {TIERS.filter((t) => t.id !== 'open' && t.id !== member.tier).map((t) => (
-                    <button key={t.id} type="button" className="btn btn--outline btn--sm" onClick={async () => {
-                      const err = await actions.requestTier(t.id);
-                      if (!err) actions.notify('ok', `You're on the list for ${t.name}.`);
-                    }}>
-                      Join the {t.name} list
-                    </button>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-        </section>
-      )}
+      {!member.isAdmin && <YourHand />}
 
       <section className="stack-10" aria-labelledby="account-title">
         <h2 id="account-title" className="display-s">Account</h2>
@@ -183,6 +162,53 @@ function Members() {
         </div>
       )}
       <p className="small muted">Until payments are live, upgrade founding members here after they've paid you.</p>
+    </section>
+  );
+}
+
+function YourHand() {
+  const { state, actions } = useStore();
+  const member = state.member!;
+  const current = tierById(member.tier);
+  const paying = isPaying(member);
+  const [busy, setBusy] = useState(false);
+  const renews = member.billing.renewsOn ? new Date(member.billing.renewsOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : null;
+  const upgrades = (['deck', 'ace'] as const).filter((t) => t !== member.tier && !(member.tier === 'ace' && t === 'deck'));
+
+  const billing = async () => {
+    setBusy(true);
+    const err = await actions.openBilling();
+    if (err) setBusy(false);
+  };
+
+  return (
+    <section className="stack-10" aria-labelledby="plan-title">
+      <h2 id="plan-title" className="display-s">Your hand</h2>
+      <div className="card stack-12">
+        <p><strong>{current.name}</strong> <span className="muted">· {current.price}{current.per}</span></p>
+
+        {PAYMENTS_LIVE && paying && (
+          <p className="small muted">
+            {member.billing.status === 'past_due'
+              ? "Your last payment didn't go through. Update your card to keep your plan."
+              : member.billing.endsAtPeriodEnd
+                ? `Cancelled. You keep ${current.name} until ${renews ?? 'the end of this period'}.`
+                : renews ? `Renews on ${renews}.` : 'Active.'}
+          </p>
+        )}
+
+        {!paying && upgrades.length > 0 && (
+          <div className="row-wrap">
+            {upgrades.map((t) => <PlanAction key={t} plan={t} className="btn btn--outline btn--sm" />)}
+          </div>
+        )}
+
+        {PAYMENTS_LIVE && member.billing.hasAccount && (
+          <button type="button" className={paying ? 'btn btn--outline btn--sm self-start' : 'link-btn small self-start'} disabled={busy} onClick={billing}>
+            {busy ? 'Opening…' : paying ? 'Change plan, card or cancel' : 'Billing history'}
+          </button>
+        )}
+      </div>
     </section>
   );
 }
