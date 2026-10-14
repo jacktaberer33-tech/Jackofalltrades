@@ -1,5 +1,8 @@
 -- Paste this into Supabase → SQL Editor → New query, then click Run.
--- (Claude couldn't apply these two parts itself: they need your approval in the dashboard.)
+-- (Claude couldn't apply these parts itself: they need your approval in the dashboard.)
+
+-- 0. Remove the three temporary test accounts Claude made while checking the database.
+delete from auth.users where email like '%@jackofalltrades.test';
 
 -- 1. Tighten who can call the database functions. Each one already refuses people it
 --    shouldn't serve; this also stops signed-out visitors calling them at all.

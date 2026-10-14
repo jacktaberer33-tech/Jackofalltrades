@@ -3,61 +3,64 @@
 The members' platform for the Jack of All Trades brand: a public join page plus the member app
 (Home, The Deck, Lessons with the Mirror, The Table, Your 1:1, and You).
 
-This is a working front end. Everything a member does (joining, finishing lessons, Mirror answers,
-posts, "me too"s, 1:1 bookings) is saved in the browser, so it behaves like the real thing for one
-person. Accounts, payments and a shared community need a backend; see **Next steps**.
+Live at https://jackofalltrades33.netlify.app. Every push to `main` deploys through Netlify.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
-npm run build        # production build in dist/, ready for Netlify or Vercel
+npm run dev          # http://localhost:5173 (talks to the live Supabase project)
+npm run build        # production build in dist/
 npm run typecheck
 ```
 
-`npm run build:artifact` makes a single self-contained HTML page (React from cdnjs, everything
-else inlined) in `artifact/`, used for the shareable preview link.
+## How it fits together
 
-## Where things live
+- **Front end:** Vite + React + TypeScript, hosted on Netlify.
+- **Back end:** Supabase project `jackofalltrades` (London). Accounts use Supabase Auth
+  (email + password). All data sits behind row-level security; the rules are in
+  `supabase/migrations/`.
+- **Plans:** members pick a plan at sign-up, which is stored as a *request*. Everyone starts on
+  Open Hand. Until Stripe is connected, Jack upgrades people from the You page (Members list).
 
 | What | File |
 |---|---|
 | Lessons, series, suits, tier names and prices, call times | `src/content.ts` |
-| Saved state and every action (join, save Mirror, post, book…) | `src/store.tsx` |
-| Routes (`#/app`, `#/deck`, `#/lesson/:id`, `#/table`, `#/ace`, `#/you`) | `src/router.tsx` |
+| Every action (sign in, save Mirror, post, book…) and all Supabase calls | `src/store.tsx` |
+| Supabase client and error messages | `src/supabase.ts` |
+| Sign up / sign in / password reset sheet | `src/components/AuthSheet.tsx` |
 | Screens | `src/pages/` |
-| Logo, playing cards, nav shell, suit filter | `src/components/` |
-| Colours, type, layout (light and dark themes) | `src/styles.css` |
-| Date helpers (Friday Table = last Friday of the month, 7pm) | `src/dates.ts` |
+| Database tables and security rules | `supabase/migrations/` |
+| One-off SQL to paste into the Supabase SQL Editor | `supabase/run-in-sql-editor.sql` |
 
-The lessons in `content.ts` are examples written in Jack's voice. Swap in the real titles,
-summaries and Mirror questions as videos get recorded. Prices (£12 Full Deck, £49 Ace) and the
-"first 50 founding members" offer are proposals; change them in `content.ts` and on the join page
-copy in `src/pages/Landing.tsx`.
+## Who can do what
 
-Placeholders still to fill: `[Photo of Jack]` and `[@yourhandle]` on the join page.
+| | Open Hand | Full Deck | Ace | Jack |
+|---|---|---|---|---|
+| First lesson of each suit, Mirror answers | ✓ | ✓ | ✓ | ✓ |
+| Every lesson | | ✓ | ✓ | ✓ |
+| Read the Table | ✓ | ✓ | ✓ | ✓ |
+| Post, reply, "me too", Friday Table RSVP | | ✓ | ✓ | ✓ |
+| Book a monthly 1:1 call | | | ✓ | sees all calls |
+| Pin posts, remove any post, change plans, member list | | | | ✓ |
 
-## The model
+Mirror answers, progress and bookings are private to each member (Jack sees bookings).
 
-- **Four suits**: Hearts (relationships), Spades (work and grit), Clubs (body and training),
-  Diamonds (money and worth). Every lesson belongs to one series in one suit.
-- **The Mirror**: every lesson ends with one honest question. Answers are private unless the
-  member shares them to the Table.
-- **Tiers**: Open Hand (free: first lesson of each suit, read-only Table), Full Deck (everything),
-  Ace (adds a monthly 1:1 call).
+## Making someone admin
 
-## Next steps (the backend)
+In Supabase → SQL Editor:
 
-`src/store.tsx` is the only file the screens talk to, so the backend slots in behind the same
-actions:
+```sql
+update public.profiles set is_admin = true
+where id = (select id from auth.users where email = 'you@example.com');
+```
 
-1. **Accounts and data**: a hosted Postgres with auth (Supabase is the quickest fit for React).
-   Tables: `members`, `progress`, `mirror_answers`, `posts`, `me_too`, `bookings`.
-2. **Payments**: Stripe Checkout + the customer portal for the Full Deck and Ace subscriptions;
-   a webhook sets the member's tier.
-3. **Video**: a private video host with signed playback URLs (Mux, Cloudflare Stream or Vimeo)
-   so lessons can't be shared outside the membership.
-4. **1:1 calls**: real availability and calendar invites (Cal.com or Calendly embed), replacing
-   `CALL_TIMES`.
-5. **Moderation** on the Table before opening it to strangers.
+## Before inviting real members
+
+1. **Email:** Supabase's built-in email only sends to the project team. Set up custom SMTP
+   (Authentication → Emails → SMTP, e.g. Resend) and then turn **Confirm email** back on.
+2. **Payments:** connect Stripe Checkout + the customer portal; a webhook (Supabase Edge
+   Function) sets `profiles.tier`.
+3. **Video:** a private host with signed playback (Mux, Cloudflare Stream or Vimeo).
+4. **Content:** replace the example lessons in `src/content.ts`, the `[Photo of Jack]` and
+   `[@yourhandle]` placeholders on the join page.
