@@ -33,7 +33,7 @@ Start in **test mode**; repeat steps 1–4 in live mode when ready to take real 
    listening for `checkout.session.completed`, `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`.
 4. Supabase → Edge Functions → Secrets: `STRIPE_SECRET_KEY` (sk_test_… then sk_live_…),
-   `STRIPE_WEBHOOK_SECRET` (whsec_… from step 3), and `SITE_URL` (the site address).
+   `STRIPE_WEBHOOK_SECRET` (whsec_… from step 3), and `SITE_URL` (https://jackofalltrades.life).
 5. In `src/config.ts` set `PAYMENTS_LIVE = true` and push.
 6. Test with card `4242 4242 4242 4242`, any future date, any CVC.
 

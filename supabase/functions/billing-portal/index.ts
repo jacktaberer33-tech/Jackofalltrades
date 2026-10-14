@@ -14,9 +14,15 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 function siteFor(req: Request): string {
-  const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades33.netlify.app').replace(/\/$/, '');
+  const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades.life').replace(/\/$/, '');
   const origin = req.headers.get('Origin') ?? '';
-  const allowed = [site, 'https://jackofalltrades33.netlify.app', 'http://localhost:5173'];
+  const allowed = [
+    site,
+    'https://jackofalltrades.life',
+    'https://www.jackofalltrades.life',
+    'https://jackofalltrades33.netlify.app',
+    'http://localhost:5173',
+  ];
   return allowed.includes(origin) ? origin : site;
 }
 

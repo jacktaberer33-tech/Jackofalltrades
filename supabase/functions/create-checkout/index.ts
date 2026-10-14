@@ -19,9 +19,15 @@ const LOOKUP: Record<string, string> = { deck: 'deck_monthly', ace: 'ace_monthly
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 function siteFor(req: Request): string {
-  const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades33.netlify.app').replace(/\/$/, '');
+  const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades.life').replace(/\/$/, '');
   const origin = req.headers.get('Origin') ?? '';
-  const allowed = [site, 'https://jackofalltrades33.netlify.app', 'http://localhost:5173'];
+  const allowed = [
+    site,
+    'https://jackofalltrades.life',
+    'https://www.jackofalltrades.life',
+    'https://jackofalltrades33.netlify.app',
+    'http://localhost:5173',
+  ];
   return allowed.includes(origin) ? origin : site;
 }
 

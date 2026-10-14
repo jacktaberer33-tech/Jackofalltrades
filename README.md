@@ -3,7 +3,7 @@
 The members' platform for the Jack of All Trades brand: a public join page plus the member app
 (Home, The Deck, Lessons with the Mirror, The Table, Your 1:1, and You).
 
-Live at https://jackofalltrades33.netlify.app. Every push to `main` deploys through Netlify.
+Live at https://jackofalltrades.life (also https://jackofalltrades33.netlify.app). Every push to `main` deploys through Netlify.
 
 ## Run it
 
