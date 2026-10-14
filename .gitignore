@@ -4,3 +4,8 @@ dist-artifact
 artifact
 .DS_Store
 *.log
+
+# Secrets (Supabase, Stripe keys) never go in the repo
+.env
+.env.*
+!.env.example
