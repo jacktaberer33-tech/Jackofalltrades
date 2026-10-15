@@ -210,7 +210,10 @@ export function Landing() {
 
       <section className="band band--surface">
         <div className="wrap about">
-          <div className="about__photo"><span>[Photo of Jack]</span></div>
+          <div className="about__photo">
+            <img src="/jack.jpg" width={960} height={1200} loading="lazy" decoding="async"
+              alt="Jack smiling in the driver's seat of his car, wearing a teal retro track jacket" />
+          </div>
           <div className="about__copy">
             <p className="eyebrow">Who's dealing</p>
             <h2 className="display-l">Master of none. Done apologising for it.</h2>
