@@ -280,7 +280,7 @@ const terms: LegalDoc = {
       blocks: [
         { p: `You can cancel whenever you like, online, in a couple of clicks: go to the You page and choose "Change plan, card or cancel". You can also email me. Your plan stays active until the end of the month you've already paid for, then it won't renew and you'll move to the free Open Hand plan.` },
         { p: `Apart from the 14-day guarantee above, I don't refund part-months, unless these terms or the law say I must.` },
-        { p: `You can also close your account completely, at any time, from the You page. Closing your account cancels any paid plan and permanently deletes your account and everything in it, as described in the [Privacy Policy](#/privacy).` },
+        { p: `You can also close your account completely, at any time, from the You page. This permanently deletes your account and everything in it, as described in the [Privacy Policy](#/privacy). If you're on a paid plan, cancel it first so that you aren't charged again; the You page will remind you.` },
       ],
     },
     {

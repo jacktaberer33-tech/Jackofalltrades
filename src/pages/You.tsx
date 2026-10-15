@@ -90,10 +90,25 @@ export function You() {
               confirmDelete ? null : <button type="button" className="link-btn small" onClick={() => setConfirmDelete(true)}>Close my account</button>
             )}
           </div>
-          {confirmDelete && (
+          {confirmDelete && PAYMENTS_LIVE && isPaying(member) && !member.billing.endsAtPeriodEnd && (
+            <div className="stack-8">
+              <p className="strong">Cancel your plan first</p>
+              <p className="small muted">
+                You're on {tierById(member.tier).name}, which renews automatically. Cancel it with "Change plan, card or cancel"
+                above so you aren't charged again, then come back here to close your account.
+              </p>
+              <div className="row-wrap">
+                <button type="button" className="btn btn--outline btn--sm" onClick={() => setConfirmDelete(false)}>OK</button>
+              </div>
+            </div>
+          )}
+          {confirmDelete && !(PAYMENTS_LIVE && isPaying(member) && !member.billing.endsAtPeriodEnd) && (
             <div className="stack-8">
               <p className="strong">Close your account for good?</p>
-              <p className="small muted">This removes your progress, Mirror answers, posts and any booked call. It can't be undone.</p>
+              <p className="small muted">
+                This removes your progress, Mirror answers, posts and any booked call. It can't be undone.
+                {PAYMENTS_LIVE && isPaying(member) && ' Your paid plan has already been cancelled, so you will lose any time left on it.'}
+              </p>
               <div className="row-wrap">
                 <button type="button" className="btn btn--accent btn--sm" onClick={async () => {
                   const err = await actions.deleteAccount();
