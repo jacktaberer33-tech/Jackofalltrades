@@ -8,8 +8,9 @@
 export const PAYMENTS_LIVE = false;
 
 /**
- * Details the policies (Privacy, Terms, Community Guidelines) show. Anything left empty
- * appears on those pages as a highlighted "to add" marker, so fill these in before going live.
+ * Details the policies (Privacy, Terms, Community Guidelines) show. An empty email appears as a
+ * highlighted "to add" marker; an empty address or ICO number is simply left off until it's set.
+ * Add the address before switching PAYMENTS_LIVE on: consumer law requires it for paid plans.
  */
 export const LEGAL = {
   /** Contact email for members and data protection requests. */

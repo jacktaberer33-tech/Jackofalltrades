@@ -53,9 +53,12 @@ function Rich({ text }: { text: string }) {
 function BlockView({ block }: { block: Block }) {
   if ('h3' in block) return <h3 className="legal__h3">{block.h3}</h3>;
   if ('ul' in block) {
+    // Lines that only exist to show the address or ICO number stay hidden until those are set.
+    const items = block.ul.filter((item) =>
+      !(item.includes('{{address}}') && !LEGAL.address) && !(item.includes('{{ico}}') && !LEGAL.icoNumber));
     return (
       <ul className="legal__list">
-        {block.ul.map((item) => <li key={item}><Rich text={item} /></li>)}
+        {items.map((item) => <li key={item}><Rich text={item} /></li>)}
       </ul>
     );
   }
