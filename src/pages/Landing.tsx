@@ -3,7 +3,8 @@ import { SUITS, TIERS, tierById, type Tier } from '../content';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { useRouter } from '../router';
-import { CardFace, LogoMark, SuitMark } from '../components/Cards';
+import { CardFace, LogoMark } from '../components/Cards';
+import { SiteFooter } from '../components/SiteFooter';
 import { Icon } from '../components/Icon';
 import { AuthSheet, type AuthMode } from '../components/AuthSheet';
 
@@ -240,13 +241,7 @@ export function Landing() {
         </div>
       </section>
 
-      <footer className="band band--block footer">
-        <div className="wrap footer__inner">
-          <span className="footer__brand"><SuitMark suit="spades" /> Jack of All Trades</span>
-          <a className="footer__link" href="https://www.instagram.com/f_taberer/" target="_blank" rel="noopener noreferrer">Instagram: @f_taberer</a>
-          <span>© 2026 Jack of All Trades</span>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={(plan) => { setPendingPlan(plan); setOpenWhenReady(true); }} />}
     </div>
