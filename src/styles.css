@@ -192,6 +192,7 @@ button { font: inherit; color: inherit; }
 }
 .link-btn:hover { text-decoration-color: currentColor; }
 .link-btn.small { font-size: 14px; padding: 0 6px; }
+a.link-btn { display: inline-flex; align-items: center; }
 
 .icon-btn {
   width: 44px;
@@ -352,6 +353,12 @@ button { font: inherit; color: inherit; }
   color: var(--ink);
 }
 .site-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  /* Phones: logo and Sign in on one row. The hero buttons already lead to How it works and the plans. */
+  .site-header__inner { flex-wrap: nowrap; }
+  .site-nav .link-btn { display: none; }
+  .brand { gap: 10px; min-width: 0; font-size: clamp(17px, 5.4vw, 22px); white-space: nowrap; }
+}
 
 .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 56px; padding-block: 0; }
 .band--paper:first-of-type { padding-top: 72px; }
