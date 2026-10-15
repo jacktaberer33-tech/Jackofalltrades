@@ -474,6 +474,8 @@ button { font: inherit; color: inherit; }
 .footer__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; color: var(--block-muted); font-size: 15px; }
 .footer__brand { font-family: var(--font-display); font-size: 20px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--block-ink); }
 .footer__brand .suit { color: var(--block-ink); }
+.footer__link { color: var(--block-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.footer__link:hover { text-decoration-thickness: 2px; }
 
 /* ---------- Join sheet ---------- */
 .sheet-backdrop {

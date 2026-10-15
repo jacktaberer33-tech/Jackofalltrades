@@ -230,7 +230,7 @@ export function Landing() {
       <footer className="band band--block footer">
         <div className="wrap footer__inner">
           <span className="footer__brand"><SuitMark suit="spades" /> Jack of All Trades</span>
-          <span>Instagram: [@yourhandle]</span>
+          <a className="footer__link" href="https://www.instagram.com/f_taberer/" target="_blank" rel="noopener noreferrer">Instagram: @f_taberer</a>
           <span>© 2026 Jack of All Trades</span>
         </div>
       </footer>
