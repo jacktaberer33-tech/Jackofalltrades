@@ -14,7 +14,7 @@ export const PAYMENTS_LIVE = false;
  */
 export const LEGAL = {
   /** Contact email for members and data protection requests. */
-  email: '',
+  email: 'jackofalltrades.life@gmail.com',
   /** Postal address for the business (a virtual business address is fine). */
   address: '',
   /** ICO registration number, shown once the data protection fee is paid. */
