@@ -1,3 +1,4 @@
+import type { LegalSlug } from './legal';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 // A small hash router. Paths look like "/deck" or "/lesson/clubs-seek-discomfort-2" and are
@@ -10,7 +11,8 @@ export type Route =
   | { name: 'lesson'; id: string }
   | { name: 'table' }
   | { name: 'ace' }
-  | { name: 'you' };
+  | { name: 'you' }
+  | { name: 'legal'; doc: LegalSlug };
 
 export function parse(path: string): Route {
   const parts = path.replace(/^\/+/, '').split('/').filter(Boolean);
@@ -21,6 +23,7 @@ export function parse(path: string): Route {
     case 'table': return { name: 'table' };
     case 'ace': return { name: 'ace' };
     case 'you': return { name: 'you' };
+    case 'privacy': case 'terms': case 'guidelines': return { name: 'legal', doc: parts[0] };
     default: return { name: 'landing' };
   }
 }

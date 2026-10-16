@@ -11,11 +11,13 @@ import { Lesson } from './pages/Lesson';
 import { Table } from './pages/Table';
 import { Ace } from './pages/Ace';
 import { You } from './pages/You';
+import { Legal } from './pages/Legal';
 
 function Screens() {
   const { route, navigate } = useRouter();
   const { state, actions } = useStore();
-  const needsMember = route.name !== 'landing';
+  // The join page and the policies are public; everything else needs a signed-in member.
+  const needsMember = route.name !== 'landing' && route.name !== 'legal';
 
   // Signed-out visitors land on the join page; signing in from there opens the app.
   useEffect(() => {
@@ -48,7 +50,9 @@ function Screens() {
   }, [signedIn, actions]);
 
   let content;
-  if (state.status === 'loading' && needsMember) {
+  if (route.name === 'legal') {
+    content = <Legal key={route.doc} slug={route.doc} />;
+  } else if (state.status === 'loading' && needsMember) {
     content = <Splash />;
   } else if (!needsMember || !state.member) {
     content = <Landing />;

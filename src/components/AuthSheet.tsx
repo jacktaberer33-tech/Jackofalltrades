@@ -166,6 +166,14 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
             </button>
 
             {mode === 'signup' && (
+              <p className="small muted center legal-consent">
+                By joining you confirm you're 18 or over and agree to the{' '}
+                <a href="#/terms" target="_blank" rel="noopener">Membership Terms</a> and{' '}
+                <a href="#/guidelines" target="_blank" rel="noopener">Community Guidelines</a>. The{' '}
+                <a href="#/privacy" target="_blank" rel="noopener">Privacy Policy</a> explains how your information is used.
+              </p>
+            )}
+            {mode === 'signup' && (
               <p className="small muted center">Already a member? <button type="button" className="link-btn small" onClick={switchTo('signin')}>Sign in</button></p>
             )}
             {mode === 'signin' && (

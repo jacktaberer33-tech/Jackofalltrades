@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { SUITS, TIERS, tierById, type Tier } from '../content';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { useRouter } from '../router';
-import { CardFace, LogoMark, SuitMark } from '../components/Cards';
+import { CardFace, LogoMark } from '../components/Cards';
+import { SiteFooter } from '../components/SiteFooter';
 import { Icon } from '../components/Icon';
 import { AuthSheet, type AuthMode } from '../components/AuthSheet';
 
@@ -24,6 +25,16 @@ function consumeEmailArrival(): boolean {
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// In-page links: real hrefs (so they can be opened, shared and crawled) that scroll smoothly
+// without touching the hash, which the router uses for app pages.
+function jumpTo(id: string) {
+  return (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    scrollToId(id);
+  };
 }
 
 export function Landing() {
@@ -78,8 +89,8 @@ export function Landing() {
             <span>Jack of All Trades</span>
           </button>
           <nav className="site-nav" aria-label="Page">
-            <button type="button" className="link-btn" onClick={() => scrollToId('how')}>How it works</button>
-            <button type="button" className="link-btn" onClick={() => scrollToId('tiers')}>Membership</button>
+            <a href="#how" className="link-btn" onClick={jumpTo('how')}>How it works</a>
+            <a href="#tiers" className="link-btn" onClick={jumpTo('tiers')}>Membership</a>
             <button type="button" className="btn btn--outline btn--sm" onClick={signIn}>
               {member ? 'Open the app' : 'Sign in'}
             </button>
@@ -100,7 +111,7 @@ export function Landing() {
             </p>
             <div className="row-wrap">
               <button type="button" className="btn btn--accent btn--lg" onClick={() => join('deck')}>Become a founding member</button>
-              <button type="button" className="btn btn--outline btn--lg" onClick={() => scrollToId('how')}>See how it works</button>
+              <a href="#how" className="btn btn--outline btn--lg" onClick={jumpTo('how')}>See how it works</a>
             </div>
             <p className="small muted">Free to start. Cancel any time.</p>
           </div>
@@ -200,7 +211,10 @@ export function Landing() {
 
       <section className="band band--surface">
         <div className="wrap about">
-          <div className="about__photo"><span>[Photo of Jack]</span></div>
+          <div className="about__photo">
+            <img src="/jack.jpg" width={960} height={1200} loading="lazy" decoding="async"
+              alt="Jack smiling in the driver's seat of his car, wearing a teal retro track jacket" />
+          </div>
           <div className="about__copy">
             <p className="eyebrow">Who's dealing</p>
             <h2 className="display-l">Master of none. Done apologising for it.</h2>
@@ -227,13 +241,7 @@ export function Landing() {
         </div>
       </section>
 
-      <footer className="band band--block footer">
-        <div className="wrap footer__inner">
-          <span className="footer__brand"><SuitMark suit="spades" /> Jack of All Trades</span>
-          <span>Instagram: [@yourhandle]</span>
-          <span>© 2026 Jack of All Trades</span>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={(plan) => { setPendingPlan(plan); setOpenWhenReady(true); }} />}
     </div>

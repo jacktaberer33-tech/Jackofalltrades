@@ -192,6 +192,7 @@ button { font: inherit; color: inherit; }
 }
 .link-btn:hover { text-decoration-color: currentColor; }
 .link-btn.small { font-size: 14px; padding: 0 6px; }
+a.link-btn { display: inline-flex; align-items: center; }
 
 .icon-btn {
   width: 44px;
@@ -352,6 +353,12 @@ button { font: inherit; color: inherit; }
   color: var(--ink);
 }
 .site-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  /* Phones: logo and Sign in on one row. The hero buttons already lead to How it works and the plans. */
+  .site-header__inner { flex-wrap: nowrap; }
+  .site-nav .link-btn { display: none; }
+  .brand { gap: 10px; min-width: 0; font-size: clamp(17px, 5.4vw, 22px); white-space: nowrap; }
+}
 
 .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 56px; padding-block: 0; }
 .band--paper:first-of-type { padding-top: 72px; }
@@ -464,6 +471,8 @@ button { font: inherit; color: inherit; }
   font-size: 14px;
   color: var(--muted);
 }
+.about__photo { overflow: hidden; }
+.about__photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
 .about__copy { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 .about__copy .display-s { font-size: 28px; }
 
@@ -474,6 +483,8 @@ button { font: inherit; color: inherit; }
 .footer__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; color: var(--block-muted); font-size: 15px; }
 .footer__brand { font-family: var(--font-display); font-size: 20px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--block-ink); }
 .footer__brand .suit { color: var(--block-ink); }
+.footer__link { color: var(--block-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.footer__link:hover { text-decoration-thickness: 2px; }
 
 /* ---------- Join sheet ---------- */
 .sheet-backdrop {
@@ -803,4 +814,32 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Policies ---------- */
+a.brand { text-decoration: none; }
+.footer__legal { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.legal { display: grid; gap: 40px; max-width: 760px; }
+.legal__head { display: grid; gap: 14px; }
+.legal__head .lede a, .legal__body a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.legal__head .lede a:hover, .legal__body a:hover { text-decoration-thickness: 2px; }
+.legal__toc { border: 1px solid var(--line); border-radius: 16px; padding: 20px 24px; background: var(--surface); }
+.legal__toc ol { margin: 10px 0 0; padding-left: 22px; columns: 2 220px; column-gap: 32px; }
+.legal__toc li { padding-block: 3px; break-inside: avoid; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legal__toc a { color: var(--ink); text-decoration: none; }
+.legal__toc a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.legal__body { display: grid; gap: 44px; counter-reset: legal; }
+.legal__section { display: grid; gap: 14px; scroll-margin-top: 24px; font-size: 17px; line-height: 1.65; color: var(--ink-soft); }
+.legal__section > h2 { color: var(--ink); text-wrap: balance; }
+.legal__section > h2::before { counter-increment: legal; content: counter(legal) "."; margin-right: 0.35em; color: var(--accent-text); }
+.legal__section p { margin: 0; max-width: 66ch; }
+.legal__h3 { margin: 10px 0 0; font-size: 17px; font-weight: 700; color: var(--ink); }
+.legal__list { margin: 0; padding-left: 22px; display: grid; gap: 8px; max-width: 64ch; }
+.legal__list li::marker { color: var(--accent-text); }
+.legal__more { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); padding-block-start: 32px; }
+.legal-todo { background: var(--accent); color: var(--on-accent); padding: 0 6px; border-radius: 4px; font-size: 0.9em; }
+.legal-consent a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 560px) {
+  .legal-page .site-nav .link-btn { display: none; }
+  .legal__toc { padding: 16px 18px; }
 }
