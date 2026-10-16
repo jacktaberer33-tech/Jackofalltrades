@@ -35,14 +35,16 @@ npm run typecheck
 
 ## Who can do what
 
-| | Open Hand | Full Deck | Ace | Jack |
-|---|---|---|---|---|
-| First lesson of each suit, Mirror answers | ✓ | ✓ | ✓ | ✓ |
-| Every lesson | | ✓ | ✓ | ✓ |
-| Read the Table | ✓ | ✓ | ✓ | ✓ |
-| Post, reply, "me too", Friday Table RSVP | | ✓ | ✓ | ✓ |
-| Book a monthly 1:1 call | | | ✓ | sees all calls |
-| Pin posts, remove any post, change plans, member list | | | | ✓ |
+| | Open Hand | Full Deck | Ace | Royal Flush | Jack |
+|---|---|---|---|---|---|
+| First lesson of each suit, Mirror answers | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Every lesson | | ✓ | ✓ | ✓ | ✓ |
+| Read the Table | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Post, reply, "me too", Friday Table RSVP | | ✓ | ✓ | ✓ | ✓ |
+| Book a 1:1 call | | | one a month, 2 weeks ahead | one a week, 4 weeks ahead | sees all calls |
+| Pin posts, remove any post, change plans, member list | | | | | ✓ |
+
+Royal Flush is capped at 5 members (`public.royal_places_left()`); checkout refuses once it's full.
 
 Mirror answers, progress and bookings are private to each member (Jack sees bookings).
 

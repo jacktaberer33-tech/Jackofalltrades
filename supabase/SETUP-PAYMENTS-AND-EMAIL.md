@@ -24,11 +24,11 @@ Everything in code is built. These are the steps that need accounts, keys or a d
 
 Start in **test mode**; repeat steps 1–4 in live mode when ready to take real money.
 
-1. Products: **Full Deck** £12/month with price lookup key `deck_monthly`, and **Ace** £49/month
-   with lookup key `ace_monthly`. (The code finds prices by lookup key, so prices can change
+1. Products: **Full Deck** £12/month with price lookup key `deck_monthly`, **Ace** £49/month
+   with lookup key `ace_monthly`, and **Royal Flush** £199/month with lookup key `royal_monthly`. (The code finds prices by lookup key, so prices can change
    later without code changes.)
 2. Billing portal (Settings → Billing → Customer portal): allow cancelling, updating payment
-   method, and switching between the two plans.
+   method, and switching between the three paid plans.
 3. Webhook endpoint: `https://zbgktqrnnhntmozuzagk.supabase.co/functions/v1/stripe-webhook`
    listening for `checkout.session.completed`, `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`.

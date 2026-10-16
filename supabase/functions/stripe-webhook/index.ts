@@ -1,5 +1,5 @@
 // Receives events from Stripe and keeps each member's plan in step with their subscription.
-// Paying moves a member onto the Full Deck or Ace; cancelling (at period end) or failed
+// Paying moves a member onto the Full Deck, Ace or Royal Flush; cancelling (at period end) or failed
 // payments that end the subscription move them back to Open Hand.
 //
 // Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
@@ -9,7 +9,7 @@
 import Stripe from 'npm:stripe@22.6.2';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
-const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace'> = { deck_monthly: 'deck', ace_monthly: 'ace' };
+const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace' | 'royal'> = { deck_monthly: 'deck', ace_monthly: 'ace', royal_monthly: 'royal' };
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';

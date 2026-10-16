@@ -3,7 +3,7 @@
 // the real ones as videos get recorded.
 
 export type SuitId = 'hearts' | 'spades' | 'clubs' | 'diamonds';
-export type Tier = 'open' | 'deck' | 'ace';
+export type Tier = 'open' | 'deck' | 'ace' | 'royal';
 
 export interface Suit {
   id: SuitId;
@@ -164,7 +164,32 @@ export const TIERS: TierInfo[] = [
     pitch: 'For when you want me in your corner.',
     perks: ['Everything in the Full Deck', 'A 45-minute 1:1 video call with me, every month', 'A small accountability group of six', 'First replies from me on the Table'],
   },
+  {
+    id: 'royal',
+    name: 'Royal Flush',
+    price: '£199',
+    per: '/month',
+    pitch: 'Me in your corner, every week.',
+    perks: [
+      'Everything in Ace',
+      'A 45-minute 1:1 video call every week, with notes and three actions after each',
+      'Voice notes between calls, answered within a working day',
+      'A 60-minute kickoff and your own 90-day plan',
+      'A personal training plan, written by me',
+      'A run, ride or hike together, once a quarter',
+      'First pick of call times',
+    ],
+  },
 ];
+
+/** Royal Flush is capped. The database (royal_places_left) is the source of truth; this is for copy. */
+export const ROYAL_PLACES = 5;
+
+/** Plans in order, so "is this an upgrade?" is a comparison. */
+export const TIER_RANK: Record<Tier, number> = { open: 0, deck: 1, ace: 2, royal: 3 };
+
+/** Plans that include 1:1 calls. */
+export const hasCalls = (tier: Tier) => tier === 'ace' || tier === 'royal';
 
 export const tierById = (id: Tier) => TIERS.find((t) => t.id === id)!;
 

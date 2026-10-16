@@ -109,7 +109,7 @@ export function effectiveTier(member: Member | null): Tier {
 }
 
 export function canPost(member: Member | null): boolean {
-  return !!member && (member.isAdmin || member.tier === 'deck' || member.tier === 'ace');
+  return !!member && (member.isAdmin || member.tier !== 'open');
 }
 
 const toMember = (p: ProfileRow, email: string): Member => ({
@@ -332,7 +332,12 @@ function useStoreValue() {
       return member;
     },
     /** Sends the member to Stripe Checkout (or the billing portal if they already pay). */
-    async startCheckout(plan: 'deck' | 'ace'): Promise<Err> {
+    /** Free Royal Flush places, or null if the count isn't available. */
+    async royalPlacesLeft(): Promise<number | null> {
+      const { data, error } = await supabase.rpc('royal_places_left');
+      return error || typeof data !== 'number' ? null : data;
+    },
+    async startCheckout(plan: 'deck' | 'ace' | 'royal'): Promise<Err> {
       const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan } });
       if (error || !data?.url) {
         const text = error ? await functionError(error) : 'Checkout did not start. Try again.';

@@ -1,9 +1,10 @@
-// Starts a Stripe Checkout for the Full Deck or Ace plan, for the signed-in member.
+// Starts a Stripe Checkout for the Full Deck, Ace or Royal Flush plan, for the signed-in member.
 // If they already pay for a plan, it sends them to the Stripe billing portal instead,
 // where they can switch plans or cancel.
 //
 // Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY, optional SITE_URL.
-// Stripe prices are found by lookup key: deck_monthly and ace_monthly.
+// Stripe prices are found by lookup key: deck_monthly, ace_monthly and royal_monthly.
+// Royal Flush is capped at 5 places (public.royal_places_left).
 import Stripe from 'npm:stripe@22.6.2';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
@@ -15,7 +16,7 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-const LOOKUP: Record<string, string> = { deck: 'deck_monthly', ace: 'ace_monthly' };
+const LOOKUP: Record<string, string> = { deck: 'deck_monthly', ace: 'ace_monthly', royal: 'royal_monthly' };
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 function siteFor(req: Request): string {
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
 
     const { plan } = (await req.json().catch(() => ({}))) as { plan?: string };
     const lookupKey = plan ? LOOKUP[plan] : undefined;
-    if (!lookupKey) return json({ error: 'Pick the Full Deck or Ace.' }, 400);
+    if (!lookupKey) return json({ error: 'Pick the Full Deck, Ace or Royal Flush.' }, 400);
 
     const { data: profile, error: profileError } = await admin
       .from('profiles')
@@ -68,6 +69,14 @@ Deno.serve(async (req) => {
         return_url: `${site}/#/you`,
       });
       return json({ url: portal.url });
+    }
+
+    if (plan === 'royal') {
+      const { data: left, error: placesError } = await admin.rpc('royal_places_left');
+      if (placesError) throw placesError;
+      if (typeof left === 'number' && left <= 0) {
+        return json({ error: "Royal Flush is full right now. You're welcome to join the waitlist." }, 409);
+      }
     }
 
     const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
