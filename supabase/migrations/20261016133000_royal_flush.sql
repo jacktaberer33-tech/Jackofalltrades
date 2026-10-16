@@ -1,4 +1,4 @@
--- NOT YET APPLIED: waiting for Jack's go-ahead before running on the jackofalltrades Supabase project.
+-- Applied to the jackofalltrades Supabase project on 16 Oct 2026 (via the SQL Editor).
 -- Royal Flush: a fourth plan (£199/month) with a weekly 1:1 call, limited to 5 places.
 -- Backward compatible: Ace keeps one call a month; nothing existing changes meaning.
 
