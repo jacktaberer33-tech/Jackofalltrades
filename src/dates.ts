@@ -12,6 +12,13 @@ export function fromISODate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/** The Monday of the week a date falls in, as YYYY-MM-DD. Royal Flush books one call per week. */
+export function weekKey(d: Date): string {
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return toISODate(monday);
+}
+
 /** The next `count` weekdays (Mon–Fri), starting tomorrow. */
 export function upcomingWeekdays(now: Date, count: number): Date[] {
   const out: Date[] = [];

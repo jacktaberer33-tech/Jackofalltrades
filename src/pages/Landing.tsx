@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import { SUITS, TIERS, tierById, type Tier } from '../content';
+import { ROYAL_PLACES, SUITS, TIERS, tierById, type Tier } from '../content';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { useRouter } from '../router';
@@ -43,7 +43,15 @@ export function Landing() {
   const [auth, setAuth] = useState<{ mode: AuthMode; tier: Tier } | null>(null);
   const [openWhenReady, setOpenWhenReady] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<Tier | null>(null);
+  const [royalLeft, setRoyalLeft] = useState<number | null>(null);
   const member = state.member;
+
+  useEffect(() => {
+    let live = true;
+    actions.royalPlacesLeft().then((n) => { if (live) setRoyalLeft(n); });
+    return () => { live = false; };
+  }, [actions]);
+  const royalFull = royalLeft === 0;
 
   // After signing up for a paid plan, go to checkout; otherwise straight into the app
   // once the profile loads (also when arriving from an email link).
@@ -184,6 +192,11 @@ export function Landing() {
                     <p className="eyebrow">{t.name}</p>
                     {t.id === 'deck' && <span className="pill pill--accent">Founding price</span>}
                     {t.id === 'ace' && <span className="pill">Limited places</span>}
+                    {t.id === 'royal' && (
+                      <span className={`pill ${royalFull ? '' : 'pill--accent'}`}>
+                        {royalLeft === null ? `${ROYAL_PLACES} places only` : royalFull ? 'Full · waitlist open' : `${royalLeft} of ${ROYAL_PLACES} places left`}
+                      </span>
+                    )}
                   </div>
                   <p className="tier__price">
                     {t.price}
@@ -201,7 +214,7 @@ export function Landing() {
                   className={`btn btn--block ${t.id === 'deck' ? 'btn--accent' : 'btn--outline'}`}
                   onClick={() => join(t.id)}
                 >
-                  {t.id === 'open' ? 'Start free' : t.id === 'deck' ? 'Join the Full Deck' : 'Go Ace'}
+                  {t.id === 'open' ? 'Start free' : t.id === 'deck' ? 'Join the Full Deck' : t.id === 'ace' ? 'Go Ace' : royalFull ? 'Join the waitlist' : 'Go Royal Flush'}
                 </button>
               </article>
             ))}

@@ -1,25 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CALL_TIMES, tierById } from '../content';
+import { CALL_TIMES, ROYAL_PLACES, hasCalls, tierById } from '../content';
 import { useStore, type Booking } from '../store';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/AppShell';
 import { PlanAction } from '../components/PlanAction';
-import { fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays } from '../dates';
+import { fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays, weekKey } from '../dates';
 
 export function Ace() {
   const { state } = useStore();
   const member = state.member!;
   const today = toISODate(new Date());
-  const booking = state.bookings.find((b) => b.date >= today) ?? null;
-  const [editing, setEditing] = useState(false);
+  const upcoming = state.bookings.filter((b) => b.date >= today);
+  const [editing, setEditing] = useState<string | null>(null);
 
   if (member.isAdmin) return <JacksCalls />;
 
-  if (member.tier !== 'ace') {
+  if (!hasCalls(member.tier)) {
     const ace = tierById('ace');
+    const royal = tierById('royal');
     return (
       <div className="stack-16">
-        <PageHeader title="Your 1:1" sub="Monthly calls with Jack are part of Ace." />
+        <PageHeader title="Your 1:1" sub="Calls with Jack are part of Ace and Royal Flush." />
         <section className="feature feature--static stack-12">
           <p className="eyebrow eyebrow--on-block">Ace · {ace.price}{ace.per}</p>
           <h2 className="display-m">Me in your corner, once a month.</h2>
@@ -28,24 +29,70 @@ export function Ace() {
           </ul>
           <PlanAction plan="ace" onBlock />
         </section>
+        <section className="card stack-12">
+          <p className="eyebrow">Royal Flush · {royal.price}{royal.per} · {ROYAL_PLACES} places</p>
+          <h2 className="display-s">{royal.pitch}</h2>
+          <ul className="ticks">
+            {royal.perks.map((p) => <li key={p}><Icon name="check" size={18} />{p}</li>)}
+          </ul>
+          <PlanAction plan="royal" className="btn btn--outline btn--sm self-start" />
+        </section>
       </div>
     );
   }
 
+  const royal = member.tier === 'royal';
+
+  // Ace: one call a month, shown one at a time. Royal Flush: one a week, booked up to four weeks ahead.
+  if (!royal) {
+    const booking = upcoming[0] ?? null;
+    return (
+      <div className="stack-16">
+        <PageHeader title="Your 1:1" aside={<span className="pill">A{'♠︎'} Ace member</span>} />
+        <section className="feature feature--static stack-8">
+          <p className="body-l on-block">45 minutes with Jack, once a month. Bring the thing you can't say anywhere else.</p>
+          <p className="mono small on-block-muted">
+            {booking ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked` : 'One call a month · weekdays'}
+          </p>
+        </section>
+        {booking && editing !== booking.id ? (
+          <Booked booking={booking} onChange={() => setEditing(booking.id)} />
+        ) : (
+          <BookingForm existing={booking} horizon={10} onDone={() => setEditing(null)} />
+        )}
+      </div>
+    );
+  }
+
+  const weeksBooked = (except: string | null) =>
+    new Set(upcoming.filter((b) => b.id !== except).map((b) => weekKey(fromISODate(b.date))));
+  const editingBooking = upcoming.find((b) => b.id === editing) ?? null;
+  const allWeeksBooked = upcomingWeekdays(new Date(), 20).every((d) => weeksBooked(null).has(weekKey(d)));
+
   return (
     <div className="stack-16">
-      <PageHeader title="Your 1:1" aside={<span className="pill">A{'♠︎'} Ace member</span>} />
+      <PageHeader title="Your 1:1" aside={<span className="pill pill--accent">Royal Flush</span>} />
       <section className="feature feature--static stack-8">
-        <p className="body-l on-block">45 minutes with Jack, once a month. Bring the thing you can't say anywhere else.</p>
+        <p className="body-l on-block">45 minutes with Jack, every week. Bring the thing you can't say anywhere else.</p>
         <p className="mono small on-block-muted">
-          {booking ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked` : 'One call a month · weekdays'}
+          {upcoming.length ? `${upcoming.length} call${upcoming.length === 1 ? '' : 's'} booked` : 'No calls booked yet'} · one a week · book up to four weeks ahead
         </p>
       </section>
 
-      {booking && !editing ? (
-        <Booked booking={booking} onChange={() => setEditing(true)} />
+      {editingBooking ? (
+        <BookingForm key={editingBooking.id} existing={editingBooking} horizon={20} blockedWeeks={weeksBooked(editingBooking.id)} onDone={() => setEditing(null)} />
       ) : (
-        <BookingForm existing={booking} onDone={() => setEditing(false)} />
+        <>
+          {upcoming.map((b) => <Booked key={b.id} booking={b} onChange={() => setEditing(b.id)} />)}
+          {allWeeksBooked ? (
+            <p className="muted small">You're booked for the next four weeks. The next week opens as each one passes.</p>
+          ) : (
+            <section className="stack-12" aria-labelledby="book-week">
+              <h2 id="book-week" className="display-s">{upcoming.length ? 'Book another week' : 'Book your first call'}</h2>
+              <BookingForm key={`new-${upcoming.length}`} existing={null} horizon={20} blockedWeeks={weeksBooked(null)} onDone={() => setEditing(null)} />
+            </section>
+          )}
+        </>
       )}
     </div>
   );
@@ -86,10 +133,19 @@ function Booked({ booking, onChange }: { booking: Booking; onChange: () => void 
   );
 }
 
-function BookingForm({ existing, onDone }: { existing: Booking | null; onDone: () => void }) {
+function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
+  existing: Booking | null;
+  onDone: () => void;
+  /** How many weekdays ahead the member can book. */
+  horizon: number;
+  /** Royal Flush: weeks that already have a call. */
+  blockedWeeks?: Set<string>;
+}) {
   const { actions } = useStore();
-  const days = useMemo(() => upcomingWeekdays(new Date(), 10), []);
-  const [date, setDate] = useState<string>(existing?.date ?? toISODate(days[0]));
+  const days = useMemo(() => upcomingWeekdays(new Date(), horizon), [horizon]);
+  const weekTaken = (iso: string) => blockedWeeks?.has(weekKey(fromISODate(iso))) ?? false;
+  const firstOpen = days.map(toISODate).find((iso) => !weekTaken(iso)) ?? toISODate(days[0]);
+  const [date, setDate] = useState<string>(existing?.date ?? firstOpen);
   const [time, setTime] = useState<string | null>(existing?.time ?? null);
   const [topic, setTopic] = useState(existing?.topic ?? '');
   const [taken, setTaken] = useState<Set<string> | null>(null);
@@ -135,8 +191,9 @@ function BookingForm({ existing, onDone }: { existing: Booking | null; onDone: (
           {days.map((d) => {
             const iso = toISODate(d);
             const full = dayFull(iso);
+            const booked = weekTaken(iso);
             return (
-              <button key={iso} type="button" className="day" aria-pressed={iso === date} disabled={full} aria-label={`${fmtDayLong(d)}${full ? ', fully booked' : ''}`} onClick={() => { setDate(iso); setTime(null); }}>
+              <button key={iso} type="button" className="day" aria-pressed={iso === date} disabled={full || booked} aria-label={`${fmtDayLong(d)}${booked ? ', you already have a call that week' : full ? ', fully booked' : ''}`} onClick={() => { setDate(iso); setTime(null); }}>
                 <span className="day__dow">{fmtDayShort(d)}</span>
                 <span className="day__num">{d.getDate()}</span>
               </button>
@@ -193,7 +250,7 @@ function JacksCalls() {
 
   return (
     <div className="stack-16">
-      <PageHeader title="1:1 calls" sub="Every upcoming call with an Ace member." />
+      <PageHeader title="1:1 calls" sub="Every upcoming call with Ace and Royal Flush members." />
       {calls === null && <p className="muted">Loading calls…</p>}
       {calls?.length === 0 && (
         <section className="card stack-8">

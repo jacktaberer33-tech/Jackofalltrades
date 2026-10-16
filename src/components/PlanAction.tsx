@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { tierById } from '../content';
+import { TIER_RANK, tierById } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { useStore } from '../store';
 import { Icon } from './Icon';
@@ -9,7 +9,7 @@ import { Icon } from './Icon';
  * before that it puts the member on the waiting list for that plan.
  */
 export function PlanAction({ plan, className = 'btn btn--accent btn--sm self-start', onBlock = false }: {
-  plan: 'deck' | 'ace';
+  plan: 'deck' | 'ace' | 'royal';
   className?: string;
   onBlock?: boolean;
 }) {
@@ -30,7 +30,7 @@ export function PlanAction({ plan, className = 'btn btn--accent btn--sm self-sta
     );
   }
 
-  const onList = member.requestedTier === plan || (plan === 'deck' && member.requestedTier === 'ace');
+  const onList = !!member.requestedTier && TIER_RANK[member.requestedTier] >= TIER_RANK[plan];
   if (onList) {
     return (
       <p className={`small ${onBlock ? 'on-block-muted' : ''}`}>

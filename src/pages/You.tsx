@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LESSONS, SUITS, TIERS, lessonById, suitById, tierById, type Tier } from '../content';
+import { LESSONS, SUITS, TIERS, TIER_RANK, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
 import { isPaying, useStore } from '../store';
@@ -188,7 +188,7 @@ function YourHand() {
   const paying = isPaying(member);
   const [busy, setBusy] = useState(false);
   const renews = member.billing.renewsOn ? new Date(member.billing.renewsOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : null;
-  const upgrades = (['deck', 'ace'] as const).filter((t) => t !== member.tier && !(member.tier === 'ace' && t === 'deck'));
+  const upgrades = (['deck', 'ace', 'royal'] as const).filter((t) => TIER_RANK[t] > TIER_RANK[member.tier]);
 
   const billing = async () => {
     setBusy(true);
