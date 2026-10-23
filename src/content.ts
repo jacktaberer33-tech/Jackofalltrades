@@ -151,7 +151,7 @@ export const TIERS: TierInfo[] = [
   {
     id: 'deck',
     name: 'Full Deck',
-    price: '£12',
+    price: '£19',
     per: '/month',
     pitch: 'The whole membership.',
     perks: ['Every lesson, across all four suits', 'A new lesson and Mirror question every week', "A seat at the Table, the members' community", 'Monthly live Friday Table with me'],
@@ -159,7 +159,7 @@ export const TIERS: TierInfo[] = [
   {
     id: 'ace',
     name: 'Ace',
-    price: '£49',
+    price: '£99',
     per: '/month',
     pitch: 'For when you want me in your corner.',
     perks: ['Everything in the Full Deck', 'A 45-minute 1:1 video call with me, every month', 'A small accountability group of six', 'First replies from me on the Table'],
@@ -167,7 +167,7 @@ export const TIERS: TierInfo[] = [
   {
     id: 'royal',
     name: 'Royal Flush',
-    price: '£199',
+    price: '£349',
     per: '/month',
     pitch: 'Me in your corner, every week.',
     perks: [
