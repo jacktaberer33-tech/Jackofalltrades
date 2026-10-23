@@ -182,8 +182,8 @@ export const TIERS: TierInfo[] = [
     perks: ['Everything in the Full Deck', 'A 45-minute 1:1 video call with me, every month', 'A small accountability group of six', 'First replies from me on the Table'],
     options: [
       { term: 'month', label: 'Monthly', price: '£99', per: '/month' },
-      { term: 'quarter', label: '3 months upfront', price: '£269', per: '/3 months', note: 'Save £28' },
-      { term: 'half', label: '6 months upfront', price: '£495', per: '/6 months', note: 'Save £99, a month free' },
+      { term: 'quarter', label: '3 months', price: '£269', per: '/3 months', note: 'Paid upfront · save £28' },
+      { term: 'half', label: '6 months', price: '£495', per: '/6 months', note: 'Paid upfront · save £99' },
     ],
   },
   {
@@ -202,8 +202,8 @@ export const TIERS: TierInfo[] = [
       'First pick of call times',
     ],
     options: [
-      { term: 'quarter', label: '3 months upfront', price: '£949', per: '/3 months' },
-      { term: 'half', label: '6 months upfront', price: '£1,745', per: '/6 months', note: 'Save £153' },
+      { term: 'quarter', label: '3 months', price: '£949', per: '/3 months', note: 'Paid upfront' },
+      { term: 'half', label: '6 months', price: '£1,745', per: '/6 months', note: 'Paid upfront · save £153' },
     ],
   },
 ];

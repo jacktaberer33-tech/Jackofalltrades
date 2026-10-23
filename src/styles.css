@@ -450,8 +450,8 @@ a.link-btn { display: inline-flex; align-items: center; }
 }
 .tier > .btn { margin-top: auto; }
 .tier__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.tier__price { font-family: var(--font-display); font-size: 56px; line-height: 1; }
-.tier__price span { font-family: var(--font-body); font-size: 18px; font-weight: 500; color: var(--muted); }
+.tier__price { font-family: var(--font-display); font-size: 56px; line-height: 1; display: flex; flex-wrap: wrap; align-items: baseline; }
+.tier__price span { font-family: var(--font-body); font-size: 18px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .tier__pitch { font-size: 16px; color: var(--ink-soft); }
 .tier--featured { background: var(--block); color: var(--block-ink); border-color: var(--block); }
 .tier--featured .eyebrow, .tier--featured .tier__price span, .tier--featured .tier__pitch { color: var(--block-muted); }
