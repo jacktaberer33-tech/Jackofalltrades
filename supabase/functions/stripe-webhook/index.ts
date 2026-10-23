@@ -9,7 +9,14 @@
 import Stripe from 'npm:stripe@22.6.2';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
-const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace' | 'royal'> = { deck_monthly: 'deck', ace_monthly: 'ace', royal_monthly: 'royal' };
+const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace' | 'royal'> = {
+  deck_monthly: 'deck',
+  ace_monthly: 'ace',
+  ace_quarterly: 'ace',
+  ace_halfyear: 'ace',
+  royal_quarterly: 'royal',
+  royal_halfyear: 'royal',
+};
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';

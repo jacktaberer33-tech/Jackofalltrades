@@ -24,11 +24,22 @@ Everything in code is built. These are the steps that need accounts, keys or a d
 
 Start in **test mode**; repeat steps 1–4 in live mode when ready to take real money.
 
-1. Products: **Full Deck** £19/month with price lookup key `deck_monthly`, **Ace** £99/month
-   with lookup key `ace_monthly`, and **Royal Flush** £349/month with lookup key `royal_monthly`. (The code finds prices by lookup key, so prices can change
-   later without code changes.)
+1. Products and prices (recurring, GBP), each with its price **lookup key**. The code finds prices
+   by lookup key, so amounts can change later without code changes.
+   | Product | Price | Bills every | Lookup key |
+   |---|---|---|---|
+   | Full Deck | £19 | month | `deck_monthly` |
+   | Ace | £99 | month | `ace_monthly` |
+   | Ace | £269 | 3 months | `ace_quarterly` |
+   | Ace | £495 | 6 months | `ace_halfyear` |
+   | Royal Flush | £949 | 3 months | `royal_quarterly` |
+   | Royal Flush | £1,745 | 6 months | `royal_halfyear` |
+
+   Upfront plans renew for the same length. Turn on renewal reminder emails in Stripe
+   (Settings → Billing → Subscriptions and emails) so members hear at least 7 days before an
+   upfront plan renews, as the Membership Terms promise.
 2. Billing portal (Settings → Billing → Customer portal): allow cancelling, updating payment
-   method, and switching between the three paid plans.
+   method, and switching between all the plans and prices above.
 3. Webhook endpoint: `https://zbgktqrnnhntmozuzagk.supabase.co/functions/v1/stripe-webhook`
    listening for `checkout.session.completed`, `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`.

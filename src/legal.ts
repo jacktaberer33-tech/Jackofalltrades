@@ -245,10 +245,10 @@ const terms: LegalDoc = {
         { p: `The first full lesson in each of the four suits, weekly lesson clips on Instagram, a monthly email from me, and the ability to read the Table.` },
         { h3: 'Full Deck: £19 a month' },
         { p: `Every lesson across all four suits, a new lesson and Mirror question each week, the ability to post and reply at the Table, and a live Friday Table session with me once a month.` },
-        { h3: 'Ace: £99 a month' },
+        { h3: 'Ace: £99 a month, or £269 for 3 months, or £495 for 6 months' },
         { p: `Everything in the Full Deck, plus one 45-minute 1:1 video call with me each calendar month, a place in a small accountability group of up to six members, and first replies from me at the Table. Ace places are limited.` },
-        { h3: 'Royal Flush: £349 a month' },
-        { p: `Everything in Ace, plus a 45-minute 1:1 video call with me every week with written notes and three actions afterwards, voice notes between calls answered within one working day, a 60-minute kickoff call and your own 90-day plan, a personal training plan written by me, a run, ride or hike together once a quarter, and first pick of call times. Royal Flush is limited to five members at a time; when it's full, you can join the waitlist.` },
+        { h3: 'Royal Flush: £949 for 3 months, or £1,745 for 6 months' },
+        { p: `Everything in Ace, plus a 45-minute 1:1 video call with me every week with written notes and three actions afterwards, voice notes between calls answered within one working day, a 60-minute kickoff call and your own 90-day plan, a personal training plan written by me, a run, ride or hike together once a quarter, and first pick of call times. Royal Flush is limited to five members at a time; when it's full, you can join the waitlist. Because the 90-day plan and the quarterly session in person run on a three-month rhythm, Royal Flush is sold in blocks of three or six months, paid upfront.` },
         { p: `Prices are in pounds sterling and are the full amount you pay. The membership is a living thing: I'll keep adding lessons, and I may update, reorder or retire older ones, or change how features work, to keep it useful. If I make a change that significantly reduces what your paid plan includes, I'll tell you in advance, and you can cancel and receive a refund for any period you've paid for but won't use.` },
       ],
     },
@@ -256,7 +256,8 @@ const terms: LegalDoc = {
       id: 'paying',
       title: 'Paying',
       blocks: [
-        { p: `Paid plans are monthly and are paid in advance through Stripe, starting on the day you join. Your plan renews automatically each month, on the same date, until you cancel. Your card is charged at each renewal.` },
+        { p: `All plans are paid in advance through Stripe, starting on the day you join. Monthly plans renew each month on the same date. Upfront plans (3 or 6 months) renew for the same length at the end of each term. Your plan keeps renewing until you cancel, and your card is charged at each renewal.` },
+        { p: `Before an upfront plan renews, I'll email you at least 7 days ahead, so you can cancel, or switch Ace to monthly, if you'd rather.` },
         { p: `If a payment fails, Stripe will try again over the following days, and you'll be able to update your card. If the payment still can't be taken, your plan moves to the free Open Hand plan. Your account, progress, Mirror answers and posts are all kept, and you can rejoin a paid plan at any time.` },
         { p: `You can see your plan, update your card, switch plans and see your billing history from the You page, using "Change plan, card or cancel".` },
       ],
@@ -265,7 +266,7 @@ const terms: LegalDoc = {
       id: 'founding',
       title: 'Founding members',
       blocks: [
-        { p: `The first 50 people to join a paid plan are founding members. As a founding member, your monthly price will not go up for as long as you stay on the same plan without a break, even if I raise prices for everyone else. If you cancel and later rejoin, or switch plans, the price that applies at that time is the one you'll pay.` },
+        { p: `The first 50 people to join a paid plan are founding members. As a founding member, your price will not go up for as long as you stay on the same plan and payment term without a break, even if I raise prices for everyone else. If you cancel and later rejoin, or switch plans, the price that applies at that time is the one you'll pay.` },
       ],
     },
     {
@@ -279,7 +280,13 @@ const terms: LegalDoc = {
       id: 'cooling-off',
       title: 'Changing your mind: 14 days',
       blocks: [
-        { p: `When you first join a paid plan, you have 14 days to change your mind. If you cancel within 14 days of your first payment, I'll refund that payment in full, even if you've already watched lessons, posted at the Table or had a 1:1 call. That goes further than the law requires.` },
+        { p: `When you first join a paid plan, you have 14 days to change your mind.` },
+        {
+          ul: [
+            `Monthly plans: if you cancel within 14 days of your first payment, I'll refund that payment in full, even if you've already watched lessons, posted at the Table or had a 1:1 call. That goes further than the law requires.`,
+            `Upfront plans (3 or 6 months): if you cancel within 14 days of your first payment, I'll refund it minus a fair share for the days you've had, worked out day by day across your term. For example, cancelling on day 10 of a 3-month plan means a refund of about 89% of what you paid.`,
+          ],
+        },
         { p: `To cancel, use "Change plan, card or cancel" on the You page, or email me. I'll refund you within 14 days of your cancellation, to the card you paid with.` },
       ],
     },
@@ -287,8 +294,8 @@ const terms: LegalDoc = {
       id: 'cancelling',
       title: 'Cancelling at any time',
       blocks: [
-        { p: `You can cancel whenever you like, online, in a couple of clicks: go to the You page and choose "Change plan, card or cancel". You can also email me. Your plan stays active until the end of the month you've already paid for, then it won't renew and you'll move to the free Open Hand plan.` },
-        { p: `Apart from the 14-day guarantee above, I don't refund part-months, unless these terms or the law say I must.` },
+        { p: `You can cancel whenever you like, online, in a couple of clicks: go to the You page and choose "Change plan, card or cancel". You can also email me. Your plan stays active until the end of the month or term you've already paid for, then it won't renew and you'll move to the free Open Hand plan.` },
+        { p: `Apart from the 14-day rules above, I don't refund part of a month or term you've paid for, unless these terms or the law say I must. If I can't provide what you've paid for, for example because I end your membership for a reason that isn't your fault or close Jack of All Trades, I'll refund the unused part.` },
         { p: `You can also close your account completely, at any time, from the You page. This permanently deletes your account and everything in it, as described in the [Privacy Policy](#/privacy). If you're on a paid plan, cancel it first so that you aren't charged again; the You page will remind you.` },
       ],
     },

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import type { SuitId, Tier } from './content';
+import type { SuitId, Term, Tier } from './content';
 import {
   supabase,
   friendlyError,
@@ -337,8 +337,8 @@ function useStoreValue() {
       const { data, error } = await supabase.rpc('royal_places_left');
       return error || typeof data !== 'number' ? null : data;
     },
-    async startCheckout(plan: 'deck' | 'ace' | 'royal'): Promise<Err> {
-      const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan } });
+    async startCheckout(plan: 'deck' | 'ace' | 'royal', term?: Term): Promise<Err> {
+      const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan, term } });
       if (error || !data?.url) {
         const text = error ? await functionError(error) : 'Checkout did not start. Try again.';
         notify('error', text);

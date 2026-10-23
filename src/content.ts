@@ -129,13 +129,28 @@ export function nextLesson(lesson: Lesson): Lesson | undefined {
   return s?.lessons[lesson.number];
 }
 
+/** How long a member pays for at once. Royal Flush is sold in blocks of at least 3 months. */
+export type Term = 'month' | 'quarter' | 'half';
+
+export interface PriceOption {
+  term: Term;
+  label: string;
+  price: string;
+  per: string;
+  /** Short saving line, e.g. "Save £28". */
+  note?: string;
+}
+
 export interface TierInfo {
   id: Tier;
   name: string;
+  /** The headline price: the first entry in `options`. */
   price: string;
   per: string;
   pitch: string;
   perks: string[];
+  /** Ways to pay for a paid plan. The first is the default. Stripe lookup keys: `${tier}_${term}`. */
+  options: PriceOption[];
 }
 
 // Prices are proposals; change them here and they update everywhere.
@@ -147,6 +162,7 @@ export const TIERS: TierInfo[] = [
     per: '',
     pitch: "Start here and see if it's for you.",
     perks: ['Weekly lesson clips on Instagram', 'One full lesson from each suit', 'A monthly email from me'],
+    options: [],
   },
   {
     id: 'deck',
@@ -155,6 +171,7 @@ export const TIERS: TierInfo[] = [
     per: '/month',
     pitch: 'The whole membership.',
     perks: ['Every lesson, across all four suits', 'A new lesson and Mirror question every week', "A seat at the Table, the members' community", 'Monthly live Friday Table with me'],
+    options: [{ term: 'month', label: 'Monthly', price: '£19', per: '/month' }],
   },
   {
     id: 'ace',
@@ -163,12 +180,17 @@ export const TIERS: TierInfo[] = [
     per: '/month',
     pitch: 'For when you want me in your corner.',
     perks: ['Everything in the Full Deck', 'A 45-minute 1:1 video call with me, every month', 'A small accountability group of six', 'First replies from me on the Table'],
+    options: [
+      { term: 'month', label: 'Monthly', price: '£99', per: '/month' },
+      { term: 'quarter', label: '3 months upfront', price: '£269', per: '/3 months', note: 'Save £28' },
+      { term: 'half', label: '6 months upfront', price: '£495', per: '/6 months', note: 'Save £99, a month free' },
+    ],
   },
   {
     id: 'royal',
     name: 'Royal Flush',
-    price: '£349',
-    per: '/month',
+    price: '£949',
+    per: '/3 months',
     pitch: 'Me in your corner, every week.',
     perks: [
       'Everything in Ace',
@@ -179,8 +201,19 @@ export const TIERS: TierInfo[] = [
       'A run, ride or hike together, once a quarter',
       'First pick of call times',
     ],
+    options: [
+      { term: 'quarter', label: '3 months upfront', price: '£949', per: '/3 months' },
+      { term: 'half', label: '6 months upfront', price: '£1,745', per: '/6 months', note: 'Save £153' },
+    ],
   },
 ];
+
+/** The price option for a plan and term, falling back to the plan's default. */
+export function priceOption(tier: Tier, term?: Term | null): PriceOption | undefined {
+  const opts = tierById(tier).options;
+  return opts.find((o) => o.term === term) ?? opts[0];
+}
+export const defaultTerm = (tier: Tier): Term => tierById(tier).options[0]?.term ?? 'month';
 
 /** Royal Flush is capped. The database (royal_places_left) is the source of truth; this is for copy. */
 export const ROYAL_PLACES = 5;

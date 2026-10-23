@@ -1,8 +1,8 @@
 // Switches for features that depend on outside services being set up.
 
 /**
- * Turn on once Stripe is set up (plans created with lookup keys deck_monthly, ace_monthly and
- * royal_monthly, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET saved in Supabase).
+ * Turn on once Stripe is set up (prices created with the lookup keys listed in
+ * supabase/SETUP-PAYMENTS-AND-EMAIL.md, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET saved in Supabase).
  * While false, paid plans are "requested" and Jack upgrades members by hand.
  */
 export const PAYMENTS_LIVE = false;

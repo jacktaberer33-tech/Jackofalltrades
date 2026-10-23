@@ -3,7 +3,8 @@
 // where they can switch plans or cancel.
 //
 // Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY, optional SITE_URL.
-// Stripe prices are found by lookup key: deck_monthly, ace_monthly and royal_monthly.
+// Stripe prices are found by lookup key, one per plan and term (how long is paid for at once):
+// deck_monthly; ace_monthly, ace_quarterly, ace_halfyear; royal_quarterly, royal_halfyear.
 // Royal Flush is capped at 5 places (public.royal_places_left).
 import Stripe from 'npm:stripe@22.6.2';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
@@ -16,7 +17,12 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-const LOOKUP: Record<string, string> = { deck: 'deck_monthly', ace: 'ace_monthly', royal: 'royal_monthly' };
+// The first term listed for each plan is its default.
+const LOOKUP: Record<string, Record<string, string>> = {
+  deck: { month: 'deck_monthly' },
+  ace: { month: 'ace_monthly', quarter: 'ace_quarterly', half: 'ace_halfyear' },
+  royal: { quarter: 'royal_quarterly', half: 'royal_halfyear' },
+};
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 function siteFor(req: Request): string {
@@ -49,9 +55,10 @@ Deno.serve(async (req) => {
     const user = auth?.user;
     if (authError || !user) return json({ error: 'Sign in first.' }, 401);
 
-    const { plan } = (await req.json().catch(() => ({}))) as { plan?: string };
-    const lookupKey = plan ? LOOKUP[plan] : undefined;
-    if (!lookupKey) return json({ error: 'Pick the Full Deck, Ace or Royal Flush.' }, 400);
+    const { plan, term } = (await req.json().catch(() => ({}))) as { plan?: string; term?: string };
+    const keys = plan ? LOOKUP[plan] : undefined;
+    if (!keys) return json({ error: 'Pick the Full Deck, Ace or Royal Flush.' }, 400);
+    const lookupKey = (term && keys[term]) || Object.values(keys)[0];
 
     const { data: profile, error: profileError } = await admin
       .from('profiles')
