@@ -30,16 +30,21 @@ function Screens() {
     if (!signedIn) return;
     let search = '';
     try { search = window.location.search; } catch { /* ignore */ }
-    if (!search.includes('checkout=success')) return;
+    // ?checkout=success after joining; ?changed=<plan> after switching plan in the billing portal.
+    const params = new URLSearchParams(search);
+    const joined = params.get('checkout') === 'success';
+    const changedTo = params.get('changed');
+    const target = changedTo === 'deck' || changedTo === 'ace' || changedTo === 'royal' ? changedTo : null;
+    if (!joined && !target) return;
     try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* ignore */ }
-    actions.notify('ok', 'Payment received. Setting up your plan…');
+    actions.notify('ok', joined ? 'Payment received. Setting up your plan…' : 'Updating your plan…');
     let tries = 0;
     let stopped = false;
     const check = async () => {
       if (stopped) return;
       const m = await actions.refreshProfile();
-      if (m && isPaying(m)) {
-        actions.notify('ok', `Welcome to the ${tierById(m.tier).name}.`);
+      if (m && isPaying(m) && (!target || m.tier === target)) {
+        actions.notify('ok', joined ? `Welcome to the ${tierById(m.tier).name}.` : `Plan updated: ${tierById(m.tier).name}.`);
         return;
       }
       if (++tries < 15) window.setTimeout(check, 2000);

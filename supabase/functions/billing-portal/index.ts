@@ -1,8 +1,8 @@
 // Opens the Stripe billing portal for the signed-in member: change card, switch plan,
 // see invoices, or cancel.
 //
-// Secrets: STRIPE_SECRET_KEY, optional SITE_URL.
-import Stripe from 'npm:stripe@22.6.2';
+// Secrets: STRIPE_SECRET_KEY (a restricted rk_ key), optional SITE_URL.
+import Stripe from 'npm:stripe@23.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
 const cors = {
@@ -23,6 +23,8 @@ function siteFor(req: Request): string {
     'https://jackofalltrades33.netlify.app',
     'http://localhost:5173',
   ];
+  // Netlify deploy previews, so payments can be tested in a sandbox before going live.
+  if (/^https:\/\/deploy-preview-\d+--jackofalltrades33\.netlify\.app$/.test(origin)) return origin;
   return allowed.includes(origin) ? origin : site;
 }
 
