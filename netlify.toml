@@ -1,0 +1,7 @@
+# Only adds settings; the build command and publish folder stay as set in the Netlify UI.
+
+# Deploy previews (pull requests) take payments through the Stripe sandbox, so checkout can be
+# tested without touching the live site. Production turns payments on with its own
+# VITE_PAYMENTS_LIVE=true environment variable when ready.
+[context.deploy-preview.environment]
+  VITE_PAYMENTS_LIVE = "true"

@@ -1,11 +1,13 @@
+/// <reference types="vite/client" />
 // Switches for features that depend on outside services being set up.
 
 /**
- * Turn on once Stripe is set up (prices created with the lookup keys listed in
- * supabase/SETUP-PAYMENTS-AND-EMAIL.md, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET saved in Supabase).
- * While false, paid plans are "requested" and Jack upgrades members by hand.
+ * Whether paid plans go through Stripe. Set by the VITE_PAYMENTS_LIVE build variable:
+ * netlify.toml turns it on for deploy previews (Stripe sandbox testing); the live site stays off
+ * until it's set to "true" for production in Netlify → Site configuration → Environment variables.
+ * While off, paid plans are "requested" and Jack upgrades members by hand.
  */
-export const PAYMENTS_LIVE = false;
+export const PAYMENTS_LIVE = import.meta.env.VITE_PAYMENTS_LIVE === 'true';
 
 /**
  * Details the policies (Privacy, Terms, Community Guidelines) show. An empty email appears as a

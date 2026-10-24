@@ -118,8 +118,8 @@ authenticator app or passkey, not SMS.
 
 ### 7. Test in the sandbox
 
-1. Deploy the three functions (Claude can do this), then set `PAYMENTS_LIVE = true` **on the
-   pull request only** and open its Netlify deploy preview: the live site stays as it is.
+1. Deploy the three functions (Claude can do this), then open a pull request's Netlify deploy
+   preview: `netlify.toml` turns payments on for previews only, so the live site stays as it is.
 2. Join with `jacktaberer33+test@gmail.com` using card `4242 4242 4242 4242`, any future date, any
    CVC. The plan should change within seconds. Repeat for an upfront plan.
 3. From the You page: switch plan, change card, cancel. Try `4000 0000 0000 0341` (attaches, then
@@ -129,7 +129,10 @@ authenticator app or passkey, not SMS.
 ### 8. Go live
 
 Repeat steps 1–6 in live mode (sandbox products, settings and keys don't carry over), swap the
-secrets for live ones, set `PAYMENTS_LIVE = true` on main, and make one real £19 payment you refund.
+secrets for live ones, then in Netlify → Site configuration → Environment variables add
+`VITE_PAYMENTS_LIVE` = `true` for **Production** and redeploy. Make one real £19 payment and refund it.
+From then on deploy previews talk to live Stripe too, so remove the preview setting from
+`netlify.toml` (or point previews at a separate sandbox) once you're live.
 
 ### Invoicing
 
