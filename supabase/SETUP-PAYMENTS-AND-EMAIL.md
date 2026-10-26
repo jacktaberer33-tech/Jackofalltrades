@@ -75,9 +75,11 @@ Settings → Billing → **Customer portal**:
 - Allow updating payment methods, viewing invoices, and **cancelling at the end of the period**
   (ask for a reason: it's useful feedback).
 - Allow **switching plans** between **Full Deck** and **Ace** (all their prices). Leave **Royal Flush
-  out** of this list: it has 5 places, and the app checks there's a free one before it opens the portal
-  on a "confirm this change" screen. In the sandbox, test an Ace member upgrading to Royal Flush from
-  the app; if Stripe refuses because Royal Flush isn't listed, add it and keep an eye on the count.
+  out** of this default configuration: it has 5 places, so members can't pick it there.
+- A **second portal configuration** for upgrades from the app, with all three plans and every price,
+  and metadata `purpose` = `upgrade-confirm`. The app checks there's a free Royal Flush place, then
+  opens this one on a "confirm this change" screen (Stripe requires the new price to be in the
+  configuration). It's API-only: Claude creates it with the Stripe connection.
 - Upgrades: **prorate** and **invoice immediately**. Downgrades: **at the end of the billing period**,
   so someone who paid for 6 months keeps them before switching.
 

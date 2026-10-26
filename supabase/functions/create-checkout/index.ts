@@ -7,8 +7,10 @@
 // Stripe prices are found by lookup key, one per plan and term (how long is paid for at once):
 // deck_monthly; ace_monthly, ace_quarterly, ace_halfyear; royal_quarterly, royal_halfyear.
 // Royal Flush is capped at 5 places (public.royal_places_left).
-// Checkout asks members to accept the Membership Terms, so a Terms of service URL must be set in
-// Stripe → Settings → Public details, or Checkout refuses to start.
+// Checkout asks members to accept the Membership Terms (live mode: set a Terms of service URL in
+// Stripe → Settings → Public details).
+// Upgrades open a second billing-portal configuration whose metadata.purpose is "upgrade-confirm":
+// it includes Royal Flush, which the default configuration leaves out because of the 5-place cap.
 import Stripe from 'npm:stripe@23.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
@@ -30,6 +32,7 @@ const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 // Tags these sessions in the Stripe Dashboard so this flow can be compared with any others later.
 const INTEGRATION_ID = 'jack-membership-checkout-qvtrmzke';
 const ROYAL_FULL = "Royal Flush is full right now. You're welcome to join the waitlist.";
+const UPGRADE_CONFIG = 'upgrade-confirm';
 
 function siteFor(req: Request): string {
   const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades.life').replace(/\/$/, '');
@@ -95,11 +98,17 @@ Deno.serve(async (req) => {
       const item = sub.items.data[0];
       const changing = item && sub.items.data.length === 1 && item.price.id !== price.id && LIVE_STATUSES.includes(sub.status);
       if (changing && !(await royalCheck())) return json({ error: ROYAL_FULL }, 409);
+      let configuration: string | undefined;
+      if (changing) {
+        const configs = await stripe.billingPortal.configurations.list({ active: true, limit: 20 });
+        configuration = configs.data.find((c) => c.metadata?.purpose === UPGRADE_CONFIG)?.id;
+      }
       const portal = await stripe.billingPortal.sessions.create({
         customer: profile.stripe_customer_id,
         return_url: `${site}/#/you`,
         ...(changing
           ? {
+              ...(configuration ? { configuration } : {}),
               flow_data: {
                 type: 'subscription_update_confirm' as const,
                 subscription_update_confirm: {
