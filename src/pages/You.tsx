@@ -212,7 +212,7 @@ function YourHand() {
           </p>
         )}
 
-        {!paying && upgrades.length > 0 && (
+        {upgrades.length > 0 && (
           <div className="row-wrap">
             {upgrades.map((t) => <PlanAction key={t} plan={t} className="btn btn--outline btn--sm" />)}
           </div>

@@ -46,7 +46,12 @@ async function syncSubscription(subId: string, userIdHint: string | null) {
   const item = sub.items.data[0];
   const planTier = TIER_BY_LOOKUP[item?.price?.lookup_key ?? ''];
   const live = LIVE_STATUSES.includes(sub.status);
-  const periodEnd = item?.current_period_end ?? null;
+  // A cancellation can be stored either as cancel_at_period_end, or (billing portal, flexible billing
+  // mode) as a cancel_at date with that flag false. Either way the member keeps the plan until then.
+  const endsAt = sub.cancel_at ?? null;
+  const cancelling = !!sub.cancel_at_period_end || !!endsAt;
+  const itemEnd = item?.current_period_end ?? null;
+  const periodEnd = endsAt && itemEnd ? Math.min(endsAt, itemEnd) : endsAt ?? itemEnd;
 
   // Find the member by their Stripe customer (saved before checkout), else by the id we stamped on it.
   let { data: profile } = await admin
@@ -83,7 +88,7 @@ async function syncSubscription(subId: string, userIdHint: string | null) {
       stripe_subscription_id: sub.id,
       subscription_status: sub.status,
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-      cancel_at_period_end: !!sub.cancel_at_period_end,
+      cancel_at_period_end: cancelling,
     })
     .eq('id', profile.id);
   if (error) throw error;
