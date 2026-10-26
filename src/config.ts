@@ -22,5 +22,5 @@ export const LEGAL = {
   /** ICO registration number, shown once the data protection fee is paid. */
   icoNumber: '',
   /** Date shown as "Last updated" on every policy. */
-  updated: '15 October 2026',
+  updated: '26 October 2026',
 };
