@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { canWatch, lessonById, nextLesson, seriesById, suitById, tierById, unlockedBy } from '../content';
+import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy } from '../content';
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon, PlayGlyph } from '../components/Icon';
@@ -59,7 +59,9 @@ export function Lesson({ id }: { id: string }) {
     <div className="stack-16">
       <div className="lesson-bar">
         <Link to="/deck" className="icon-btn" aria-label="Back to the Deck"><Icon name="chevronLeft" /></Link>
-        <span className="eyebrow center">{suit.symbol} {suit.name} · {series.title}</span>
+        <span className="eyebrow center">
+          {suit.symbol} {series.joker ? `${suit.name} Joker` : `${rankName(series.rank)} of ${suit.name}`} · {series.title}
+        </span>
         <button type="button" className="icon-btn" aria-label={bookmarked ? 'Remove from saved' : 'Save lesson'} aria-pressed={bookmarked} onClick={() => actions.toggleSaved(lesson.id)}>
           <Icon name="bookmark" filled={bookmarked} />
         </button>
