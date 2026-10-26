@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { TIERS, tierById, type Tier } from '../content';
+import { TIERS, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
+import { TermPicker } from './TermPicker';
 import { useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { Icon } from './Icon';
 
 export type AuthMode = 'signup' | 'signin' | 'reset' | 'newPassword';
 
-export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClose, onSignedIn }: {
+export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term: initialTerm, onClose, onSignedIn }: {
   mode: AuthMode;
   tier?: Tier;
+  term?: Term;
   onClose: () => void;
-  onSignedIn?: (plan: Tier | null) => void;
+  onSignedIn?: (plan: Tier | null, term: Term | null) => void;
 }) {
   const { actions } = useStore();
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [tier, setTier] = useState<Tier>(initialTier);
+  const [tier, setTierState] = useState<Tier>(initialTier);
+  const [term, setTerm] = useState<Term>(initialTerm ?? defaultTerm(initialTier));
+  const setTier = (t: Tier) => { setTierState(t); setTerm(defaultTerm(t)); };
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +47,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
         if (res.error) setError(res.error);
         else if (res.needsConfirm) setDone(`Nearly there. We've sent a link to ${email.trim()}. Open it to finish joining.`);
         else {
-          onSignedIn?.(tier);
+          onSignedIn?.(tier, term);
           onClose();
         }
       }
@@ -51,7 +55,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
       const err = await actions.signIn(email, password);
       if (err) setError(err);
       else {
-        onSignedIn?.(null);
+        onSignedIn?.(null, null);
         onClose();
       }
     } else if (mode === 'reset') {
@@ -75,6 +79,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
 
   const title = { signup: 'Take a seat', signin: 'Welcome back', reset: 'Reset your password', newPassword: 'Choose a new password' }[mode];
   const chosen = tierById(tier);
+  const chosenPrice = priceOption(tier, term);
   const submitLabel =
     mode === 'signup' ? (tier === 'open' ? 'Join free' : PAYMENTS_LIVE ? 'Continue to payment' : `Join and request ${chosen.name}`)
     : mode === 'signin' ? 'Sign in'
@@ -110,10 +115,11 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', onClo
                     </label>
                   ))}
                 </fieldset>
+                <TermPicker tier={tier} value={term} onChange={setTerm} idPrefix="join" />
                 {tier !== 'open' && (
                   <p className="small muted note">
                     {PAYMENTS_LIVE
-                      ? `Next you'll pay ${chosen.price}${chosen.per} securely with Stripe. Cancel any time.`
+                      ? `Next you'll pay ${chosenPrice?.price ?? chosen.price}${chosenPrice?.per ?? chosen.per} securely with Stripe.`
                       : "Payments aren't open yet. You'll start on Open Hand today, and founding members get moved up first when they open."}
                   </p>
                 )}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import { ROYAL_PLACES, SUITS, TIERS, tierById, type Tier } from '../content';
+import { ROYAL_PLACES, SUITS, TIERS, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
+import { TermPicker } from '../components/TermPicker';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { useRouter } from '../router';
@@ -40,9 +41,12 @@ function jumpTo(id: string) {
 export function Landing() {
   const { state, actions } = useStore();
   const { navigate } = useRouter();
-  const [auth, setAuth] = useState<{ mode: AuthMode; tier: Tier } | null>(null);
+  const [auth, setAuth] = useState<{ mode: AuthMode; tier: Tier; term?: Term } | null>(null);
   const [openWhenReady, setOpenWhenReady] = useState(false);
-  const [pendingPlan, setPendingPlan] = useState<Tier | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<{ tier: Tier; term: Term | null } | null>(null);
+  const [terms, setTerms] = useState<Record<Tier, Term>>(() => ({
+    open: defaultTerm('open'), deck: defaultTerm('deck'), ace: defaultTerm('ace'), royal: defaultTerm('royal'),
+  }));
   const [royalLeft, setRoyalLeft] = useState<number | null>(null);
   const member = state.member;
 
@@ -57,10 +61,10 @@ export function Landing() {
   // once the profile loads (also when arriving from an email link).
   useEffect(() => {
     if (!member) return;
-    if (PAYMENTS_LIVE && pendingPlan && pendingPlan !== 'open') {
-      const plan = pendingPlan;
+    if (PAYMENTS_LIVE && pendingPlan && pendingPlan.tier !== 'open') {
+      const { tier: plan, term } = pendingPlan;
       setPendingPlan(null);
-      void actions.startCheckout(plan);
+      void actions.startCheckout(plan, term ?? undefined);
       return;
     }
     if (openWhenReady || consumeEmailArrival()) navigate('/app');
@@ -74,11 +78,11 @@ export function Landing() {
   // Joining from any button: new visitors sign up; existing members just ask for that plan.
   const join = async (tier: Tier) => {
     if (!member) {
-      setAuth({ mode: 'signup', tier });
+      setAuth({ mode: 'signup', tier, term: terms[tier] });
       return;
     }
     if (PAYMENTS_LIVE && tier !== 'open' && tier !== member.tier && !isPaying(member)) {
-      await actions.startCheckout(tier);
+      await actions.startCheckout(tier, terms[tier]);
       return;
     }
     if (tier !== 'open' && tier !== member.tier) {
@@ -199,11 +203,12 @@ export function Landing() {
                     )}
                   </div>
                   <p className="tier__price">
-                    {t.price}
-                    {t.per && <span>{t.per}</span>}
+                    {priceOption(t.id, terms[t.id])?.price ?? t.price}
+                    {(priceOption(t.id, terms[t.id])?.per ?? t.per) && <span>{priceOption(t.id, terms[t.id])?.per ?? t.per}</span>}
                   </p>
                   <p className="tier__pitch">{t.pitch}</p>
                 </div>
+                <TermPicker tier={t.id} value={terms[t.id]} onChange={(term) => setTerms((s) => ({ ...s, [t.id]: term }))} idPrefix="card" />
                 <ul className="ticks">
                   {t.perks.map((p) => (
                     <li key={p}><Icon name="check" size={18} />{p}</li>
@@ -256,7 +261,7 @@ export function Landing() {
 
       <SiteFooter />
 
-      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} onClose={() => setAuth(null)} onSignedIn={(plan) => { setPendingPlan(plan); setOpenWhenReady(true); }} />}
+      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} term={auth.term} onClose={() => setAuth(null)} onSignedIn={(plan, term) => { setPendingPlan(plan ? { tier: plan, term } : null); setOpenWhenReady(true); }} />}
     </div>
   );
 }

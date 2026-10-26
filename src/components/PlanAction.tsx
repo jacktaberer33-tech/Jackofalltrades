@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { TIER_RANK, tierById } from '../content';
+import { TermPicker } from './TermPicker';
+import { TIER_RANK, defaultTerm, priceOption, tierById, type Term } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { useStore } from '../store';
 import { Icon } from './Icon';
@@ -17,16 +18,21 @@ export function PlanAction({ plan, className = 'btn btn--accent btn--sm self-sta
   const [busy, setBusy] = useState(false);
   const member = state.member!;
   const info = tierById(plan);
+  const [term, setTerm] = useState<Term>(defaultTerm(plan));
 
   if (PAYMENTS_LIVE) {
+    const opt = priceOption(plan, term);
     return (
-      <button type="button" className={className} disabled={busy} onClick={async () => {
-        setBusy(true);
-        const err = await actions.startCheckout(plan);
-        if (err) setBusy(false); // on success the page leaves for Stripe
-      }}>
-        {busy ? 'Opening checkout…' : `Join the ${info.name} · ${info.price}${info.per}`}
-      </button>
+      <div className="stack-8">
+        <TermPicker tier={plan} value={term} onChange={setTerm} idPrefix="upgrade" onBlock={onBlock} />
+        <button type="button" className={className} disabled={busy} onClick={async () => {
+          setBusy(true);
+          const err = await actions.startCheckout(plan, term);
+          if (err) setBusy(false); // on success the page leaves for Stripe
+        }}>
+          {busy ? 'Opening checkout…' : `Join the ${info.name} · ${opt?.price ?? info.price}${opt?.per ?? info.per}`}
+        </button>
+      </div>
     );
   }
 

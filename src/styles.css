@@ -450,8 +450,8 @@ a.link-btn { display: inline-flex; align-items: center; }
 }
 .tier > .btn { margin-top: auto; }
 .tier__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.tier__price { font-family: var(--font-display); font-size: 56px; line-height: 1; }
-.tier__price span { font-family: var(--font-body); font-size: 18px; font-weight: 500; color: var(--muted); }
+.tier__price { font-family: var(--font-display); font-size: 56px; line-height: 1; display: flex; flex-wrap: wrap; align-items: baseline; }
+.tier__price span { font-family: var(--font-body); font-size: 18px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .tier__pitch { font-size: 16px; color: var(--ink-soft); }
 .tier--featured { background: var(--block); color: var(--block-ink); border-color: var(--block); }
 .tier--featured .eyebrow, .tier--featured .tier__price span, .tier--featured .tier__pitch { color: var(--block-muted); }
@@ -844,3 +844,18 @@ a.brand { text-decoration: none; }
   .legal-page .site-nav .link-btn { display: none; }
   .legal__toc { padding: 16px 18px; }
 }
+
+/* ---------- Monthly or upfront ---------- */
+.term-picker { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 6px; }
+.term-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px;
+  cursor: pointer; font-size: 15px; background: var(--surface);
+}
+.term-option.is-on { border-color: var(--ink); }
+.term-option input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
+.term-option__label { flex: 1 1 auto; min-width: 0; font-weight: 600; display: grid; }
+.term-option__note { font-size: 12.5px; font-weight: 500; color: var(--accent-text); }
+.term-option__price { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.term-picker--on-block .term-option { background: transparent; border-color: var(--block-muted); color: var(--block-ink); }
+.term-picker--on-block .term-option.is-on { border-color: var(--block-ink); }

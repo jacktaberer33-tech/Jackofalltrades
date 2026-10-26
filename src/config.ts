@@ -1,11 +1,13 @@
+/// <reference types="vite/client" />
 // Switches for features that depend on outside services being set up.
 
 /**
- * Turn on once Stripe is set up (plans created with lookup keys deck_monthly, ace_monthly and
- * royal_monthly, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET saved in Supabase).
- * While false, paid plans are "requested" and Jack upgrades members by hand.
+ * Whether paid plans go through Stripe. Set by the VITE_PAYMENTS_LIVE build variable:
+ * netlify.toml turns it on for deploy previews (Stripe sandbox testing); the live site stays off
+ * until it's set to "true" for production in Netlify → Site configuration → Environment variables.
+ * While off, paid plans are "requested" and Jack upgrades members by hand.
  */
-export const PAYMENTS_LIVE = false;
+export const PAYMENTS_LIVE = import.meta.env.VITE_PAYMENTS_LIVE === 'true';
 
 /**
  * Details the policies (Privacy, Terms, Community Guidelines) show. An empty email appears as a
@@ -16,9 +18,9 @@ export const LEGAL = {
   /** Contact email for members and data protection requests. */
   email: 'jackofalltrades.life@gmail.com',
   /** Postal address for the business (a virtual business address is fine). */
-  address: '',
+  address: 'Jack of All Trades, 49 Station Road, Polegate, East Sussex, BN26 6EA',
   /** ICO registration number, shown once the data protection fee is paid. */
   icoNumber: '',
   /** Date shown as "Last updated" on every policy. */
-  updated: '15 October 2026',
+  updated: '26 October 2026',
 };
