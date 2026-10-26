@@ -2,9 +2,8 @@
 // Switches for features that depend on outside services being set up.
 
 /**
- * Whether paid plans go through Stripe. Set by the VITE_PAYMENTS_LIVE build variable:
- * netlify.toml turns it on for deploy previews (Stripe sandbox testing); the live site stays off
- * until it's set to "true" for production in Netlify → Site configuration → Environment variables.
+ * Whether paid plans go through Stripe. Set by the VITE_PAYMENTS_LIVE build variable in
+ * netlify.toml: on for the live site, off for deploy previews (Supabase holds live Stripe keys).
  * While off, paid plans are "requested" and Jack upgrades members by hand.
  */
 export const PAYMENTS_LIVE = import.meta.env.VITE_PAYMENTS_LIVE === 'true';

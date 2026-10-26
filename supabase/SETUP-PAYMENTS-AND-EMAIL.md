@@ -131,10 +131,10 @@ authenticator app or passkey, not SMS.
 ### 8. Go live
 
 Repeat steps 1–6 in live mode (sandbox products, settings and keys don't carry over), swap the
-secrets for live ones, then in Netlify → Site configuration → Environment variables add
-`VITE_PAYMENTS_LIVE` = `true` for **Production** and redeploy. Make one real £19 payment and refund it.
-From then on deploy previews talk to live Stripe too, so remove the preview setting from
-`netlify.toml` (or point previews at a separate sandbox) once you're live.
+secrets for live ones, then set `VITE_PAYMENTS_LIVE = "true"` for production in `netlify.toml`
+(done 26 October 2026) and push. Make one real £19 payment and refund it. Deploy previews are
+switched off in `netlify.toml`, because Supabase now holds live keys; to test payment changes,
+swap Supabase back to sandbox keys and switch previews on.
 
 ### Invoicing
 

@@ -1,7 +1,10 @@
 # Only adds settings; the build command and publish folder stay as set in the Netlify UI.
 
-# Deploy previews (pull requests) take payments through the Stripe sandbox, so checkout can be
-# tested without touching the live site. Production turns payments on with its own
-# VITE_PAYMENTS_LIVE=true environment variable when ready.
-[context.deploy-preview.environment]
+# Payments go through Stripe on the live site (live keys are in Supabase's edge function secrets).
+[context.production.environment]
   VITE_PAYMENTS_LIVE = "true"
+
+# Deploy previews stay off: Supabase now holds live Stripe keys, so a preview would take real money.
+# To test changes to payments, point Supabase at sandbox keys first, then switch this on.
+[context.deploy-preview.environment]
+  VITE_PAYMENTS_LIVE = "false"
