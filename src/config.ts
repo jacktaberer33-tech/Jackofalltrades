@@ -18,7 +18,7 @@ export const LEGAL = {
   /** Contact email for members and data protection requests. */
   email: 'jackofalltrades.life@gmail.com',
   /** Postal address for the business (a virtual business address is fine). */
-  address: '',
+  address: 'Jack of All Trades, 49 Station Road, Polegate, East Sussex, BN26 6EA',
   /** ICO registration number, shown once the data protection fee is paid. */
   icoNumber: '',
   /** Date shown as "Last updated" on every policy. */
