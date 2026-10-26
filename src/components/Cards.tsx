@@ -26,11 +26,22 @@ export function CardFace({ suit, center = 'rank', className = '' }: { suit: Suit
 }
 
 /** A tiny card used as a series thumbnail. */
-export function MiniCard({ suit }: { suit: SuitId }) {
+/** A small playing card: rank over suit, a Joker star, or face down for cards not dealt yet. */
+export function MiniCard({ suit, rank, faceDown = false }: { suit: SuitId; rank?: string; faceDown?: boolean }) {
   const s = suitById(suit);
+  if (faceDown) return <span className="mini-card mini-card--back" aria-hidden="true" />;
+  if (rank === 'Joker') {
+    return (
+      <span className="mini-card mini-card--joker" aria-hidden="true">
+        <span className="mini-card__rank">★</span>
+        <span className="mini-card__word">Joker</span>
+      </span>
+    );
+  }
   return (
     <span className={`mini-card ${s.red ? 'mini-card--red' : ''}`} aria-hidden="true">
-      {s.symbol}
+      {rank && <span className="mini-card__rank">{rank}</span>}
+      <span className={rank ? 'mini-card__suit' : undefined}>{s.symbol}</span>
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FEATURED_LESSON_ID, SERIES, SUITS, canWatch, lessonById, type SuitId } from '../content';
+import { FEATURED_LESSON_ID, RANKS, SERIES, SUITS, TIER_RANK, canWatch, lessonById, rankName, tierById, unlockedBy, type SuitId } from '../content';
 import { effectiveTier, useStore } from '../store';
 import { Link } from '../router';
 import { MiniCard, SuitMark } from '../components/Cards';
@@ -15,28 +15,52 @@ export function Deck() {
 
   return (
     <div className="stack-20">
-      <PageHeader title="The Deck" sub="Every lesson, dealt into four suits." />
+      <PageHeader title="The Deck" sub="Four suits, thirteen cards each, Ace to King. Every card is a series of lessons." />
       <SuitFilter value={filter} onChange={setFilter} />
 
       {SUITS.filter((s) => filter === 'all' || filter === s.id).map((suit) => {
         const seriesList = SERIES.filter((s) => s.suit === suit.id);
+        const dealt = seriesList.filter((s) => !s.comingSoon && !s.joker).length;
         return (
           <section key={suit.id} className="stack-10" aria-labelledby={`suit-${suit.id}`}>
             <div className="row-between">
               <h2 id={`suit-${suit.id}`} className="display-s"><SuitMark suit={suit.id} /> {suit.name}</h2>
-              <span className="small muted">{seriesList.length} series</span>
+              <span className="small muted">{dealt} of {RANKS.length} cards dealt</span>
             </div>
             {seriesList.map((series) => {
+              const cardName = series.joker ? `${suit.name} Jokers` : `${rankName(series.rank)} of ${suit.name}`;
+              const seriesLocked = TIER_RANK[tier] < TIER_RANK[series.minTier];
+              const planPill = (series.joker || seriesLocked) && (
+                <span className={`pill ${series.joker ? 'pill--accent' : ''}`}>
+                  {seriesLocked && <Icon name="lock" size={12} />}
+                  {series.joker ? 'Royal Flush only' : tierById(series.minTier).name}
+                </span>
+              );
+
+              if (series.comingSoon) {
+                return (
+                  <article key={series.id} className="series series--soon" aria-label={`${cardName}: coming soon`}>
+                    <div className="series__head">
+                      <MiniCard suit={series.suit} faceDown />
+                      <span className="grow stack-6">
+                        <span className="series__title">Coming soon {planPill}</span>
+                        <span className="small muted">{cardName} · not dealt yet</span>
+                      </span>
+                    </div>
+                  </article>
+                );
+              }
+
               const done = series.lessons.filter((l) => state.completed.includes(l.id)).length;
               const isOpen = open.includes(series.id);
               const status = done === series.lessons.length ? 'Finished' : done === 0 ? 'Not started' : `${done} of ${series.lessons.length} done`;
               return (
-                <article key={series.id} className="series">
+                <article key={series.id} className={`series ${series.joker ? 'series--joker' : ''}`}>
                   <button type="button" className="series__head" aria-expanded={isOpen} aria-controls={`series-${series.id}`} onClick={() => toggleOpen(series.id)}>
-                    <MiniCard suit={series.suit} />
+                    <MiniCard suit={series.suit} rank={series.rank} />
                     <span className="grow stack-6">
-                      <span className="series__title">{series.title}</span>
-                      <span className="small muted">{series.lessons.length} lessons · {status}</span>
+                      <span className="series__title">{series.title} {planPill}</span>
+                      <span className="small muted">{cardName} · {series.lessons.length} lessons · {status}</span>
                       <span className="meter" aria-hidden="true"><span style={{ width: `${(done / series.lessons.length) * 100}%` }} /></span>
                     </span>
                     <span className={`series__chev ${isOpen ? 'is-open' : ''}`}><Icon name="chevronDown" size={20} /></span>
@@ -60,7 +84,7 @@ export function Deck() {
                                   {complete && ' · Finished'}
                                 </span>
                               </span>
-                              {locked ? <span className="muted" aria-label="Full Deck only"><Icon name="lock" size={18} /></span> : <Icon name="chevronRight" size={18} />}
+                              {locked ? <span className="muted" aria-label={`${tierById(unlockedBy(lesson)).name} only`}><Icon name="lock" size={18} /></span> : <Icon name="chevronRight" size={18} />}
                             </Link>
                           </li>
                         );
