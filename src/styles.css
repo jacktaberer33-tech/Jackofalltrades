@@ -651,7 +651,8 @@ a.link-btn { display: inline-flex; align-items: center; }
   cursor: pointer;
   color: var(--ink);
 }
-.series__title { font-size: 16px; font-weight: 700; }
+.series__title { font-size: 16px; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.series--joker { border-color: var(--accent); }
 .series__chev { display: inline-flex; color: var(--muted); transition: transform 0.2s; }
 .series__chev.is-open { transform: rotate(180deg); }
 .lesson-list { list-style: none; padding: 0; border-top: 1px solid var(--line); }

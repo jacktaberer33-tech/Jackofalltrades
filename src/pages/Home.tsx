@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { FEATURED_LESSON_ID, LESSONS, canWatch, lessonById, seriesById, suitById, tierById } from '../content';
+import { FEATURED_LESSON_ID, LESSONS, canWatch, lessonById, seriesById, suitById, tierById, unlockedBy } from '../content';
+import { PAYMENTS_LIVE } from '../config';
+import { PlanAction } from '../components/PlanAction';
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
@@ -22,7 +24,8 @@ export function Home() {
   const latest = (state.posts ?? []).find((p) => !p.pinned);
   const today = toISODate(now);
   const upcomingCall = state.bookings.find((b) => b.date >= today);
-  const finished = state.completed.length;
+  const watchable = LESSONS.filter((l) => canWatch(effectiveTier(member), l));
+  const finished = watchable.filter((l) => state.completed.includes(l.id)).length;
   const waitingFor = member.requestedTier && member.requestedTier !== 'open' && member.requestedTier !== member.tier && !member.isAdmin ? member.requestedTier : null;
 
   useEffect(() => {
@@ -43,17 +46,23 @@ export function Home() {
         </Link>
       </header>
 
-      {waitingFor && (
+      {waitingFor && (PAYMENTS_LIVE ? (
+        <section className="card card--edge stack-10">
+          <p className="strong">{tierById(waitingFor).name} is open.</p>
+          <p className="small muted">You asked to join while payments were being set up. Your seat is ready whenever you are.</p>
+          <PlanAction plan={waitingFor} />
+        </section>
+      ) : (
         <section className="card card--edge stack-6">
           <p className="strong">You're on the list for {tierById(waitingFor).name}.</p>
           <p className="small muted">Payments open soon and founding members get moved up first. Until then you're on Open Hand: the first lesson of every suit, and you can read the Table.</p>
         </section>
-      )}
+      ))}
 
       <Link to={`/lesson/${lesson.id}`} className="feature">
         <div className="feature__top">
           <span className="eyebrow eyebrow--on-block">{suit.symbol} {suit.name} · This week's hand</span>
-          {unlocked ? <span className="pill pill--accent">New</span> : <span className="pill pill--on-block"><Icon name="lock" size={12} /> Full Deck</span>}
+          {unlocked ? <span className="pill pill--accent">New</span> : <span className="pill pill--on-block"><Icon name="lock" size={12} /> {tierById(unlockedBy(lesson)).name}</span>}
         </div>
         <h2 className="display-m">{series.title}: {lesson.title.toLowerCase()}</h2>
         <div className="feature__meta">
@@ -78,8 +87,8 @@ export function Home() {
       <div className="grid-2">
         <section className="card card--tight stack-8">
           <p className="eyebrow">Lessons finished</p>
-          <p className="stat">{finished}<span> of {LESSONS.length}</span></p>
-          <div className="meter" aria-hidden="true"><span style={{ width: `${(finished / LESSONS.length) * 100}%` }} /></div>
+          <p className="stat">{finished}<span> of {watchable.length}</span></p>
+          <div className="meter" aria-hidden="true"><span style={{ width: `${watchable.length ? (finished / watchable.length) * 100 : 0}%` }} /></div>
         </section>
         <section className="card card--tight stack-6">
           <p className="eyebrow">Friday Table</p>

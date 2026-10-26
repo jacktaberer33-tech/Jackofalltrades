@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { canWatch, lessonById, nextLesson, seriesById, suitById } from '../content';
+import { canWatch, lessonById, nextLesson, seriesById, suitById, tierById, unlockedBy } from '../content';
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon, PlayGlyph } from '../components/Icon';
@@ -29,6 +29,13 @@ export function Lesson({ id }: { id: string }) {
   const series = seriesById(lesson.seriesId)!;
   const suit = suitById(lesson.suit);
   const unlocked = canWatch(effectiveTier(member), lesson);
+  const needs = unlockedBy(lesson);
+  const plan = needs === 'open' ? 'deck' : needs;
+  const pitch = {
+    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets the first lesson of every suit. The Full Deck unlocks the core series in every suit, the Mirror and the Table.'],
+    ace: ['This lesson is part of Ace.', 'Ace unlocks every lesson in all four suits, plus a 45-minute 1:1 call with me every month.'],
+    royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit, plus a 1:1 call with me every week. There are five places.'],
+  }[plan];
   const complete = state.completed.includes(lesson.id);
   const bookmarked = state.saved.includes(lesson.id);
   const next = nextLesson(lesson);
@@ -70,7 +77,7 @@ export function Lesson({ id }: { id: string }) {
         ) : (
           <div className="video__locked">
             <Icon name="lock" size={28} />
-            <span>Full Deck lesson</span>
+            <span>{lesson.joker ? 'Royal Flush Joker' : `${tierById(plan).name} lesson`}</span>
           </div>
         )}
       </div>
@@ -122,9 +129,9 @@ export function Lesson({ id }: { id: string }) {
         </>
       ) : (
         <section className="card card--edge stack-12">
-          <p className="strong">This lesson is part of the Full Deck.</p>
-          <p className="muted">Open Hand gets the first lesson of every suit. The Full Deck unlocks every lesson, the Mirror and the Table.</p>
-          <PlanAction plan="deck" />
+          <p className="strong">{pitch[0]}</p>
+          <p className="muted">{pitch[1]}</p>
+          <PlanAction plan={plan} />
         </section>
       )}
     </div>

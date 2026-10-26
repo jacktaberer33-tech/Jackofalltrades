@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { LESSONS, SUITS, TIERS, TIER_RANK, lessonById, suitById, tierById, type Tier } from '../content';
+import { LESSONS, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
-import { isPaying, useStore } from '../store';
+import { effectiveTier, isPaying, useStore } from '../store';
 import { Link, useRouter } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
 import type { AdminMemberRow } from '../supabase';
@@ -36,8 +36,9 @@ export function You() {
         <h2 id="progress-title" className="display-s">Your progress</h2>
         <div className="card stack-12">
           {SUITS.map((s) => {
-            const total = LESSONS.filter((l) => l.suit === s.id).length;
-            const done = LESSONS.filter((l) => l.suit === s.id && state.completed.includes(l.id)).length;
+            const mine = LESSONS.filter((l) => l.suit === s.id && canWatch(effectiveTier(member), l));
+            const total = mine.length;
+            const done = mine.filter((l) => state.completed.includes(l.id)).length;
             return (
               <div key={s.id} className="progress-row">
                 <span className="progress-row__name"><SuitMark suit={s.id} /> {s.name}</span>

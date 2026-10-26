@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FEATURED_LESSON_ID, SERIES, SUITS, canWatch, lessonById, type SuitId } from '../content';
+import { FEATURED_LESSON_ID, SERIES, SUITS, TIER_RANK, canWatch, lessonById, tierById, unlockedBy, type SuitId } from '../content';
 import { effectiveTier, useStore } from '../store';
 import { Link } from '../router';
 import { MiniCard, SuitMark } from '../components/Cards';
@@ -30,12 +30,21 @@ export function Deck() {
               const done = series.lessons.filter((l) => state.completed.includes(l.id)).length;
               const isOpen = open.includes(series.id);
               const status = done === series.lessons.length ? 'Finished' : done === 0 ? 'Not started' : `${done} of ${series.lessons.length} done`;
+              const seriesLocked = TIER_RANK[tier] < TIER_RANK[series.minTier];
               return (
-                <article key={series.id} className="series">
+                <article key={series.id} className={`series ${series.joker ? 'series--joker' : ''}`}>
                   <button type="button" className="series__head" aria-expanded={isOpen} aria-controls={`series-${series.id}`} onClick={() => toggleOpen(series.id)}>
                     <MiniCard suit={series.suit} />
                     <span className="grow stack-6">
-                      <span className="series__title">{series.title}</span>
+                      <span className="series__title">
+                        {series.title}
+                        {(series.joker || seriesLocked) && (
+                          <span className={`pill ${series.joker ? 'pill--accent' : ''} series__plan`}>
+                            {seriesLocked && <Icon name="lock" size={12} />}
+                            {series.joker ? 'Royal Flush only' : tierById(series.minTier).name}
+                          </span>
+                        )}
+                      </span>
                       <span className="small muted">{series.lessons.length} lessons · {status}</span>
                       <span className="meter" aria-hidden="true"><span style={{ width: `${(done / series.lessons.length) * 100}%` }} /></span>
                     </span>
@@ -60,7 +69,7 @@ export function Deck() {
                                   {complete && ' · Finished'}
                                 </span>
                               </span>
-                              {locked ? <span className="muted" aria-label="Full Deck only"><Icon name="lock" size={18} /></span> : <Icon name="chevronRight" size={18} />}
+                              {locked ? <span className="muted" aria-label={`${tierById(unlockedBy(lesson)).name} only`}><Icon name="lock" size={18} /></span> : <Icon name="chevronRight" size={18} />}
                             </Link>
                           </li>
                         );
