@@ -19,7 +19,7 @@ export const LEGAL = {
   /** Postal address for the business (a virtual business address is fine). */
   address: 'Jack of All Trades, 49 Station Road, Polegate, East Sussex, BN26 6EA',
   /** ICO registration number, shown once the data protection fee is paid. */
-  icoNumber: '',
+  icoNumber: 'ZC284788',
   /** Date shown as "Last updated" on every policy. */
-  updated: '26 October 2026',
+  updated: '27 October 2026',
 };

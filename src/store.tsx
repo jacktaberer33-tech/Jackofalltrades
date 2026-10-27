@@ -133,6 +133,11 @@ export function isPaying(member: Member | null): boolean {
   return !!member && ['active', 'trialing', 'past_due'].includes(member.billing.status ?? '');
 }
 
+export type LessonVideo =
+  | { status: 'ready'; url: string; /** Only sent to Jack. */ videoId: string | null }
+  | { status: 'none' }
+  | { status: 'error'; message: string };
+
 async function functionError(error: unknown): Promise<string> {
   // supabase.functions.invoke puts the response on error.context for non-2xx replies.
   const ctx = (error as { context?: Response })?.context;
@@ -362,6 +367,16 @@ function useStoreValue() {
     },
 
     // ---------- Lessons ----------
+    /** A short-lived, signed Bunny Stream player link for a lesson the member's plan includes. */
+    async lessonVideo(lessonId: string): Promise<LessonVideo> {
+      const { data, error } = await supabase.functions.invoke('lesson-video', { body: { lessonId } });
+      if (error) return { status: 'error', message: await functionError(error) };
+      if (data?.status === 'ready' && typeof data.url === 'string') {
+        return { status: 'ready', url: data.url, videoId: typeof data.videoId === 'string' ? data.videoId : null };
+      }
+      if (data?.status === 'none') return { status: 'none' };
+      return { status: 'error', message: "The video didn't load. Refresh to try again." };
+    },
     async toggleComplete(lessonId: string) {
       const wasDone = stateRef.current.completed.includes(lessonId);
       setState((s) => ({ ...s, completed: wasDone ? s.completed.filter((x) => x !== lessonId) : [...s.completed, lessonId] }));
@@ -539,6 +554,18 @@ function useStoreValue() {
       const { error } = await supabase.rpc('set_member_tier', { p_member: memberId, p_tier: tier });
       if (error) return fail(error);
       if (memberId === uid()) setState((s) => (s.member ? { ...s, member: { ...s.member, tier } } : s));
+      return null;
+    },
+    /**
+     * Attaches a Bunny Stream video to a lesson (or removes it with null). Also records the cheapest plan
+     * that may watch it, which the lesson-video function checks before handing out a player link.
+     */
+    async setLessonVideo(lessonId: string, videoId: string | null, minTier: Tier): Promise<Err> {
+      const { error } = videoId
+        ? await supabase.from('lesson_videos').upsert({ lesson_id: lessonId, video_id: videoId, min_tier: minTier })
+        : await supabase.from('lesson_videos').delete().eq('lesson_id', lessonId);
+      if (error) return fail(error);
+      notify('ok', videoId ? 'Video attached.' : 'Video removed.');
       return null;
     },
     async adminUpcomingCalls(fromDate: string): Promise<Booking[] | null> {
