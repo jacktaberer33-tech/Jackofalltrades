@@ -24,7 +24,14 @@ export function TermPicker({ tier, value, onChange, idPrefix, onBlock = false }:
             <input type="radio" id={id} name={`${idPrefix}-${tier}`} value={o.term} checked={value === o.term} onChange={() => onChange(o.term)} />
             <span className="term-option__label">
               {o.label}
-              {o.note && <span className="term-option__note">{o.note}</span>}
+              {o.note && (
+                // "Paid upfront · save £28": in a narrow card it breaks between the phrases, never inside one.
+                <span className="term-option__note">
+                  {o.note.split(' · ').map((part, i) => (
+                    <span key={part}>{i > 0 && ' · '}<span className="nowrap">{part}</span></span>
+                  ))}
+                </span>
+              )}
             </span>
             <span className="term-option__price">{o.price}</span>
           </label>

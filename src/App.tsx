@@ -13,6 +13,19 @@ import { Ace } from './pages/Ace';
 import { You } from './pages/You';
 import { Legal } from './pages/Legal';
 
+// Captured before Supabase tidies the address bar: an email link that has expired or was already used
+// arrives as #error=…&error_code=otp_expired&error_description=…
+let linkError = (() => {
+  try {
+    const params = new URLSearchParams(window.location.hash.replace(/^#\/?/, ''));
+    const code = params.get('error_code');
+    const description = params.get('error_description');
+    return code || description ? { code, description } : null;
+  } catch {
+    return null;
+  }
+})();
+
 function Screens() {
   const { route, navigate } = useRouter();
   const { state, actions } = useStore();
@@ -23,6 +36,18 @@ function Screens() {
   useEffect(() => {
     if (state.status === 'signedOut' && needsMember) navigate('/');
   }, [state.status, needsMember, navigate]);
+
+  // A broken or expired email link: say so plainly and land on the home page.
+  useEffect(() => {
+    const err = linkError;
+    if (!err) return;
+    linkError = null; // once per visit
+    try { window.history.replaceState(null, '', '/#/'); } catch { /* ignore */ }
+    navigate('/');
+    actions.notify('error', err.code === 'otp_expired'
+      ? 'That email link has expired or was already used. Ask for a new one and use the newest email.'
+      : `That link didn't work: ${err.description ?? 'please try again'}.`);
+  }, [actions, navigate]);
 
   // Back from Stripe Checkout: the plan changes when Stripe tells the server, usually within seconds.
   const signedIn = state.status === 'signedIn';

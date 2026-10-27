@@ -464,7 +464,11 @@ a.link-btn { display: inline-flex; align-items: center; }
   gap: 22px;
 }
 .tier > .btn { margin-top: auto; }
-.tier__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.tier__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-height: 26px; }
+/* Four across: the badge goes under the plan name on every card, so the prices line up. */
+@media (min-width: 1101px) {
+  .tier__top { flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 51px; }
+}
 .tier__price { font-family: var(--font-display); font-size: 56px; line-height: 1; display: flex; flex-wrap: wrap; align-items: baseline; }
 .tier__price span { font-family: var(--font-body); font-size: 18px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .tier__pitch { font-size: 16px; color: var(--ink-soft); }
@@ -872,6 +876,7 @@ a.brand { text-decoration: none; }
 .term-option input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
 .term-option__label { flex: 1 1 auto; min-width: 0; font-weight: 600; display: grid; }
 .term-option__note { font-size: 12.5px; font-weight: 500; color: var(--accent-text); }
+.nowrap { white-space: nowrap; }
 .term-option__price { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
 .term-picker--on-block .term-option { background: transparent; border-color: var(--block-muted); color: var(--block-ink); }
 .term-picker--on-block .term-option.is-on { border-color: var(--block-ink); }
