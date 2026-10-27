@@ -9,6 +9,22 @@
 [context.deploy-preview.environment]
   VITE_PAYMENTS_LIVE = "false"
 
+# Basic browser protections: no framing the site (stops click-jacking the sign-in and join buttons),
+# no guessing file types, and links to other sites don't carry the full page address.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Built files have a content hash in their name, so browsers can keep them for a year.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # Any path that isn't a real file serves the app, so stray links (like an auth redirect to "/**")
 # open the site instead of Netlify's 404 page. Real files (assets, images) are still served first.
 [[redirects]]

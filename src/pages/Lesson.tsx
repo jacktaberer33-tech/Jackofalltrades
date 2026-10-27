@@ -32,8 +32,8 @@ export function Lesson({ id }: { id: string }) {
   const needs = unlockedBy(lesson);
   const plan = needs === 'open' ? 'deck' : needs;
   const pitch = {
-    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets the first lesson of every suit. The Full Deck unlocks the core series in every suit, the Mirror and the Table.'],
-    ace: ['This lesson is part of Ace.', 'Ace unlocks every lesson in all four suits, plus a 45-minute 1:1 call with me every month.'],
+    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets one free lesson in every suit. The Full Deck unlocks the first five cards of every suit (Ace to 5), plus the Mirror and the Table.'],
+    ace: ['This lesson is part of Ace.', 'Ace unlocks the whole deck, every card from Ace to King in all four suits, plus a 45-minute 1:1 call with me every month.'],
     royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit, plus a 1:1 call with me every week. There are five places.'],
   }[plan];
   const complete = state.completed.includes(lesson.id);
