@@ -154,3 +154,22 @@ looking like it works. Things to settle with your accountant before you need the
   VAT rules for customers in the EU. Ask your accountant whether that applies to you.
 - Stripe Tax → Settings: set a head office address (the I-Support one). In live mode, Tax →
   Locations then flags places where your sales may be getting near a registration threshold.
+
+## Lesson videos (Bunny Stream)
+
+Members' lesson videos live in Bunny Stream and only play through a short-lived signed link, which the
+`lesson-video` edge function hands out after checking the member's plan. The link to each lesson's
+video is in `public.lesson_videos`, which only Jack can read or edit.
+
+1. bunny.net → Stream → Add video library (main region: Europe).
+2. In the library: Security → turn on **Embed view token authentication**. Under Allowed domains add
+   `jackofalltrades.life`, `www.jackofalltrades.life` and `jackofalltrades33.netlify.app`.
+   Turn on **MediaCage basic DRM** to make downloading harder.
+3. Supabase → Edge Functions → Secrets:
+   - `BUNNY_LIBRARY_ID`: the library's ID (a number, shown under API).
+   - `BUNNY_TOKEN_KEY`: the token authentication key from the library's Security page (not the API key).
+4. Upload a lesson in Bunny, copy its Video ID, open that lesson on the site while signed in as Jack and
+   paste it into "Lesson video · only you see this". The plan it needs comes from `src/content.ts`.
+
+If who a card is for changes in `src/content.ts`, update `min_tier` in `lesson_videos` to match (or
+re-attach the video, which rewrites it).

@@ -722,7 +722,16 @@ a.link-btn { display: inline-flex; align-items: center; }
 .pause-glyph { width: 18px; height: 20px; border-left: 6px solid currentColor; border-right: 6px solid currentColor; margin-left: -4px; }
 .video__label { position: absolute; left: 14px; bottom: 12px; right: 70px; font-family: var(--font-mono); font-size: 11px; color: var(--video-muted); }
 .video__time { position: absolute; right: 14px; bottom: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--video-muted); }
-.video__locked { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--video-muted); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
+.video__locked { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--video-muted); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; text-align: center; padding: 0 16px; }
+.video__player { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video__retry { text-transform: none; letter-spacing: 0; color: var(--video-muted); border-color: var(--video-muted); margin-top: 4px; }
+
+/* Jack's attach-a-video box on each lesson */
+.admin-box { border-style: dashed; }
+.admin-box__summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; cursor: pointer; list-style: none; }
+.admin-box__summary .small { white-space: nowrap; }
+.admin-box__summary::-webkit-details-marker { display: none; }
+.admin-box[open] .admin-box__summary { margin-bottom: 12px; }
 
 /* ---------- Table ---------- */
 .composer { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }

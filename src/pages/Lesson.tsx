@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy } from '../content';
-import { canPost, effectiveTier, useStore } from '../store';
+import { useEffect, useState } from 'react';
+import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy, type Lesson as LessonInfo } from '../content';
+import { canPost, effectiveTier, useStore, type LessonVideo } from '../store';
 import { Link, useRouter } from '../router';
-import { Icon, PlayGlyph } from '../components/Icon';
+import { Icon } from '../components/Icon';
 import { PlanAction } from '../components/PlanAction';
 
 export function Lesson({ id }: { id: string }) {
@@ -11,9 +11,20 @@ export function Lesson({ id }: { id: string }) {
   const lesson = lessonById(id);
   const saved = lesson ? state.mirror[lesson.id] : undefined;
   const [draft, setDraft] = useState(saved?.text ?? '');
-  const [playing, setPlaying] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Jack can watch (and attach videos to) every lesson, Jokers included.
+  const unlocked = !!lesson && !!state.member && (state.member.isAdmin || canWatch(effectiveTier(state.member), lesson));
+  const [video, setVideo] = useState<LessonVideo | null>(null); // null while loading
+  const [videoKey, setVideoKey] = useState(0); // bumped to reload after Jack attaches a video
+
+  useEffect(() => {
+    if (!unlocked) return;
+    let live = true;
+    setVideo(null);
+    void actions.lessonVideo(id).then((v) => { if (live) setVideo(v); });
+    return () => { live = false; };
+  }, [unlocked, id, actions, videoKey]);
 
   if (!lesson) {
     return (
@@ -28,7 +39,6 @@ export function Lesson({ id }: { id: string }) {
   const member = state.member!;
   const series = seriesById(lesson.seriesId)!;
   const suit = suitById(lesson.suit);
-  const unlocked = canWatch(effectiveTier(member), lesson);
   const needs = unlockedBy(lesson);
   const plan = needs === 'open' ? 'deck' : needs;
   const pitch = {
@@ -68,21 +78,41 @@ export function Lesson({ id }: { id: string }) {
       </div>
 
       <div className="video">
-        {unlocked ? (
-          <>
-            <button type="button" className="video__play" aria-label={playing ? 'Pause lesson' : 'Play lesson'} onClick={() => setPlaying((p) => !p)}>
-              {playing ? <span className="pause-glyph" aria-hidden="true" /> : <PlayGlyph size={24} />}
-            </button>
-            <span className="video__label">{playing ? 'The lesson video plays here once it is uploaded' : '[Lesson video]'}</span>
-            <span className="video__time">{lesson.minutes}:00</span>
-          </>
-        ) : (
+        {!unlocked ? (
           <div className="video__locked">
             <Icon name="lock" size={28} />
             <span>{lesson.joker ? 'Royal Flush Joker' : `${tierById(plan).name} lesson`}</span>
           </div>
+        ) : video === null ? (
+          <div className="video__locked" role="status"><span>Loading the lesson…</span></div>
+        ) : video.status === 'ready' ? (
+          <iframe
+            className="video__player"
+            src={video.url}
+            title={`Lesson video: ${lesson.title}`}
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+        ) : video.status === 'none' ? (
+          <div className="video__locked">
+            <Icon name="video" size={28} />
+            <span>Video coming soon</span>
+          </div>
+        ) : (
+          <div className="video__locked" role="alert">
+            <span>{video.message}</span>
+            <button type="button" className="btn btn--outline btn--sm video__retry" onClick={() => setVideoKey((k) => k + 1)}>Try again</button>
+          </div>
         )}
       </div>
+
+      {member.isAdmin && (
+        <VideoAdmin
+          lesson={lesson}
+          attached={video?.status === 'ready' ? video.videoId : null}
+          onSaved={() => setVideoKey((k) => k + 1)}
+        />
+      )}
 
       <div className="stack-8">
         <p className="eyebrow">Part {lesson.number} of {series.lessons.length} · {lesson.minutes} min</p>
@@ -137,5 +167,63 @@ export function Lesson({ id }: { id: string }) {
         </section>
       )}
     </div>
+  );
+}
+
+const BUNNY_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Jack only: attach this lesson's Bunny Stream video. Paste the video's ID, or any Bunny link or embed
+ * code that contains it. The plan it needs is taken from the deck, so members only get what they pay for.
+ */
+function VideoAdmin({ lesson, attached, onSaved }: { lesson: LessonInfo; attached: string | null; onSaved: () => void }) {
+  const { actions } = useStore();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const found = text.match(BUNNY_ID)?.[0].toLowerCase() ?? null;
+  const plan = unlockedBy(lesson);
+
+  const save = async (videoId: string | null) => {
+    setBusy(true);
+    const err = await actions.setLessonVideo(lesson.id, videoId, plan);
+    setBusy(false);
+    if (!err) {
+      setText('');
+      onSaved();
+    }
+  };
+
+  return (
+    <details className="card admin-box" open={!attached}>
+      <summary className="admin-box__summary">
+        <span className="eyebrow">Lesson video · only you see this</span>
+        <span className="small muted">{attached ? 'Attached' : 'No video yet'}</span>
+      </summary>
+      <div className="stack-10">
+        <p className="small muted">
+          Watchable by {plan === 'open' ? 'everyone, free (the free lesson in this suit)' : `${tierById(plan).name} and above`}.
+          {attached && <> Bunny video <span className="mono">{attached}</span>.</>}
+        </p>
+        <label htmlFor={`bunny-${lesson.id}`} className="label">{attached ? 'Replace with another Bunny video' : 'Bunny video ID'}</label>
+        <input
+          id={`bunny-${lesson.id}`}
+          className="input"
+          placeholder="Paste the video ID or its embed link"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {text && !found && <p className="small" role="alert">That doesn't contain a Bunny video ID. It looks like 1a2b3c4d-…</p>}
+        <div className="row-wrap">
+          <button type="button" className="btn btn--ink btn--sm" disabled={!found || busy} onClick={() => save(found)}>
+            {attached ? 'Replace video' : 'Attach video'}
+          </button>
+          {attached && (
+            <button type="button" className="btn btn--outline btn--sm" disabled={busy} onClick={() => save(null)}>Remove video</button>
+          )}
+        </div>
+      </div>
+    </details>
   );
 }
