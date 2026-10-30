@@ -28,11 +28,23 @@ export function Home() {
   const finished = watchable.filter((l) => state.completed.includes(l.id)).length;
   const waitingFor = member.requestedTier && member.requestedTier !== 'open' && member.requestedTier !== member.tier && !member.isAdmin ? member.requestedTier : null;
 
+  // On the day of the Friday Table, paying members get a Join button (Jack sets the link on the You page).
+  const callDay = fridayIso === today;
+  const memberCanPost = canPost(member);
+  const [callLink, setCallLink] = useState<string | null>(null);
+
   useEffect(() => {
     let live = true;
     actions.rsvpCount(fridayIso).then((n) => live && setGoingCount(n));
     return () => { live = false; };
   }, [actions, fridayIso, going]);
+
+  useEffect(() => {
+    if (!callDay || !memberCanPost) return;
+    let live = true;
+    actions.fridayTableLink().then((url) => live && setCallLink(url));
+    return () => { live = false; };
+  }, [actions, callDay, memberCanPost]);
 
   return (
     <div className="stack-16">
@@ -93,12 +105,19 @@ export function Home() {
         <section className="card card--tight stack-6">
           <p className="eyebrow">Friday Table</p>
           <p className="strong">Live with Jack</p>
-          <p className="small muted">{fmtDayMonth(friday)} · {fmtEventTime(friday)}{goingCount ? ` · ${goingCount} going` : ''}</p>
-          {canPost(member) ? (
-            <button type="button" className="btn btn--outline btn--xs self-start" aria-pressed={going} onClick={() => actions.toggleRsvp(fridayIso)}>
-              <Icon name={going ? 'check' : 'calendar'} size={14} />
-              {going ? "You're going" : "I'll be there"}
-            </button>
+          <p className="small muted">{callDay ? 'Today' : fmtDayMonth(friday)} · {fmtEventTime(friday)}{goingCount ? ` · ${goingCount} going` : ''}</p>
+          {memberCanPost ? (
+            <div className="row-wrap row-wrap--tight">
+              {callDay && callLink && (
+                <a className="btn btn--accent btn--xs" href={callLink} target="_blank" rel="noopener noreferrer">
+                  <Icon name="video" size={14} /> Join the call
+                </a>
+              )}
+              <button type="button" className="btn btn--outline btn--xs" aria-pressed={going} onClick={() => actions.toggleRsvp(fridayIso)}>
+                <Icon name={going ? 'check' : 'calendar'} size={14} />
+                {going ? "You're going" : "I'll be there"}
+              </button>
+            </div>
           ) : (
             <p className="small muted">Part of the Full Deck</p>
           )}

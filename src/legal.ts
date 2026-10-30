@@ -69,7 +69,7 @@ const privacy: LegalDoc = {
         { h3: 'Payments' },
         { p: `Payments are taken by Stripe. Your card details go straight to Stripe and are never seen or stored by me. I keep a Stripe customer reference, the status of your subscription, its renewal date, and whether you've asked for it to end. Lawful basis: contract, and my legal obligation to keep accurate financial records for tax.` },
         { h3: 'Emails' },
-        { p: `I send emails you need in order to use your account, such as confirming your sign-up and resetting your password, as well as emails that are part of your plan: the monthly email for Open Hand members, call links for Ace and Royal Flush members, and important notices about your membership or these policies. Lawful basis: contract. I won't email you about anything other than your membership unless you've asked me to, and you can opt out of anything optional at any time.` },
+        { p: `I send emails you need in order to use your account, such as confirming your sign-up and resetting your password, as well as emails that are part of your plan: the monthly email from me (every member gets it, and each one has a one-click unsubscribe link), call links for Ace and Royal Flush members, and important notices about your membership or these policies. Lawful basis: contract. I won't email you about anything other than your membership unless you've asked me to, and you can opt out of anything optional at any time.` },
         { h3: 'Messages you send me' },
         { p: `If you email me or contact me another way, I keep the conversation so I can help you and refer back to it. Lawful basis: my legitimate interest in responding to you and running the membership well.` },
         { h3: 'Technical information' },
@@ -115,7 +115,7 @@ const privacy: LegalDoc = {
           ul: [
             `Supabase: the database that stores your account and membership activity, and the system that handles sign-in. Your data is stored in London.`,
             `Netlify: hosts the website.`,
-            `Resend: sends account and membership emails.`,
+            `Resend: sends account and membership emails, and keeps the mailing list for the monthly email (your first name and email address, plus whether you've unsubscribed). When you close your account, you're removed from it within an hour.`,
             `WhatsApp (Meta): carries voice notes and messages between Royal Flush members and me. They're end-to-end encrypted, and Meta's own privacy policy applies to your use of WhatsApp.`,
             `Google Fonts: provides the typefaces the site uses. When a page loads, your browser fetches them from Google's servers, which can see your IP address.`,
             `A video hosting service, which streams the lesson videos. I'll name it here before lesson videos go live.`,
