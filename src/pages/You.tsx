@@ -31,6 +31,7 @@ export function You() {
       </header>
 
       {member.isAdmin && <Members />}
+      {member.isAdmin && <FridayTableLink />}
 
       <section className="stack-10" aria-labelledby="progress-title">
         <h2 id="progress-title" className="display-s">Your progress</h2>
@@ -177,7 +178,62 @@ function Members() {
           </table>
         </div>
       )}
-      <p className="small muted">Until payments are live, upgrade founding members here after they've paid you.</p>
+      <p className="small muted">Changing a plan here doesn't touch Stripe. Use it for free places and fixes; paid plans update themselves.</p>
+    </section>
+  );
+}
+
+/** Jack only: the one recurring call link members use to join the monthly Friday Table. */
+function FridayTableLink() {
+  const { actions } = useStore();
+  const [saved, setSaved] = useState<string | null | undefined>(undefined); // undefined while loading
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    actions.fridayTableLink().then((url) => {
+      if (!live) return;
+      setSaved(url);
+      setText(url ?? '');
+    });
+    return () => { live = false; };
+  }, [actions]);
+
+  const save = async () => {
+    setBusy(true);
+    const err = await actions.setFridayTableLink(text);
+    setBusy(false);
+    if (!err) setSaved(text.trim() || null);
+  };
+
+  return (
+    <section className="stack-10" aria-labelledby="friday-link-title">
+      <h2 id="friday-link-title" className="display-s">Friday Table call</h2>
+      <div className="card stack-10">
+        <p className="small muted">
+          The last Friday of each month at 7pm. Paste one recurring Google Meet link. Paying members see a Join button on the day; free members never see it.
+        </p>
+        <label htmlFor="friday-link" className="label">Call link</label>
+        <input
+          id="friday-link"
+          className="input"
+          type="url"
+          inputMode="url"
+          placeholder="https://meet.google.com/abc-defg-hij"
+          value={text}
+          disabled={saved === undefined}
+          onChange={(e) => setText(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <div className="row-wrap">
+          <button type="button" className="btn btn--ink btn--sm" disabled={busy || saved === undefined || text.trim() === (saved ?? '')} onClick={save}>
+            Save link
+          </button>
+          {saved && <a className="link-btn small" href={saved} target="_blank" rel="noopener noreferrer">Test it</a>}
+        </div>
+      </div>
     </section>
   );
 }

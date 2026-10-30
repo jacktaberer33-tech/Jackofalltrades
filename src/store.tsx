@@ -502,6 +502,24 @@ function useStoreValue() {
       const { data, error } = await supabase.rpc('rsvp_count', { p_event_date: eventDate });
       return error ? null : (data as number);
     },
+    /** The Friday Table call link. Only paying members and Jack can read it; null if not set. */
+    async fridayTableLink(): Promise<string | null> {
+      const { data, error } = await supabase.from('friday_table').select('meet_url').maybeSingle();
+      return error ? null : ((data as { meet_url: string | null } | null)?.meet_url ?? null);
+    },
+    /** Jack only: sets (or clears, with '') the Friday Table call link. */
+    async setFridayTableLink(url: string): Promise<Err> {
+      const clean = url.trim();
+      if (clean && !/^https:\/\/\S+$/.test(clean)) {
+        const text = 'Paste the full link, starting with https://';
+        notify('error', text);
+        return text;
+      }
+      const { error } = await supabase.from('friday_table').update({ meet_url: clean || null }).eq('id', true);
+      if (error) return fail(error);
+      notify('ok', clean ? 'Call link saved.' : 'Call link removed.');
+      return null;
+    },
 
     // ---------- 1:1 calls ----------
     async takenSlots(from: string, to: string): Promise<{ date: string; time: string }[]> {

@@ -173,3 +173,30 @@ video is in `public.lesson_videos`, which only Jack can read or edit.
 
 If who a card is for changes in `src/content.ts`, update `min_tier` in `lesson_videos` to match (or
 re-attach the video, which rewrites it).
+
+## Monthly email and the Table round-up (Resend)
+
+`member-mail` (edge function) runs on a schedule from the database (pg_cron):
+- **Hourly sync:** every member who has confirmed their email goes into the Resend segment "Members"
+  (first name and email). Closed accounts are deleted from Resend. It never touches anyone's
+  unsubscribe setting.
+- **8pm round-up (UTC):** on days with new Table posts or replies (not Jack's own), Jack gets one email
+  listing them, with Ace and Royal Flush posts flagged. It goes to `ALERT_EMAIL` (default
+  jackofalltrades.life@gmail.com).
+
+The scheduled calls carry a secret made inside the database and kept in its vault (`cron_secret`).
+
+To switch it on:
+1. In the Resend team that owns `jackofalltrades.life` (the one Supabase's email settings use), create an
+   API key with **Full access** (sending-only keys can't manage contacts).
+2. Supabase → Edge Functions → Secrets → add `RESEND_API_KEY` with that key. Optionally add `ALERT_EMAIL`.
+3. Within an hour, Resend → Audience shows a "Members" segment.
+
+To send the monthly email: Resend → Broadcasts → new broadcast → segment "Members" → from
+`Jack <hello@jackofalltrades.life>`. Keep the unsubscribe link in the footer. Send yourself a test first.
+
+## Friday Table call link
+
+The last Friday of each month at 7pm. Jack pastes one recurring Google Meet link on the You page. Full Deck
+members and above see a Join button on Home on the day; the link is in `public.friday_table`, readable only
+by paying members and Jack.
