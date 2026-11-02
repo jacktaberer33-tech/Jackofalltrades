@@ -1,11 +1,15 @@
-// Welcome emails for paid plans: one per member per plan, the first time they move up onto it (joining
-// the Full Deck, going Ace, taking a Royal Flush place). Sent from Jack, with replies going to his inbox.
+// Welcome emails, sent from Jack with replies going to his inbox:
+// - Paid plans: one per member per plan, the first time they move up onto it (joining the Full Deck, going
+//   Ace, taking a Royal Flush place).
+// - Open Hand: one for free members, an hour after they confirm their email. Anyone who chose a paid plan
+//   at sign-up gets their paid welcome instead, and the free one only if they still haven't paid a day later.
 // public.welcome_sent records what's gone out. Nobody gets the same welcome twice, nobody is welcomed to a
-// lower plan after a downgrade, and Jack's own account never gets one.
+// lower plan after a downgrade, and admin accounts never get one.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { resend, sleep } from './resend.ts';
 
 type Paid = 'deck' | 'ace' | 'royal';
+type Plan = 'open' | Paid;
 const SITE = 'https://jackofalltrades.life';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -48,10 +52,28 @@ function layout(body: string): string {
   </div></body></html>`;
 }
 
-/** The three welcome emails. `name` is the member's first name; `friday` is the next Friday Table date. */
-export function welcomeEmail(tier: Paid, name: string, friday: string): { subject: string; html: string } {
+/** The welcome emails. `name` is the member's first name; `friday` is the next Friday Table date. */
+export function welcomeEmail(tier: Plan, name: string, friday: string): { subject: string; html: string } {
   const hi = `<p style="margin:0 0 16px">Hi ${esc(name || 'there')},</p>`;
   const fridayLine = `<p><strong>Friday Table:</strong> the last Friday of every month, 7pm, live with me. The next one is ${friday}. A Join button appears on your Home page on the day.</p>`;
+
+  if (tier === 'open') {
+    return {
+      subject: 'Start here',
+      html: layout(`${hi}
+        <p>Welcome in. You're on Open Hand, which is free for as long as you like.</p>
+        <p><strong>Here's what's yours:</strong></p>
+        <ul style="padding-left:20px">
+          <li style="margin-bottom:8px"><strong>One full lesson in every suit.</strong> Hearts, Spades, Clubs and Diamonds: relationships, work, body and money.</li>
+          <li style="margin-bottom:8px"><strong>The Table, to read.</strong> Members being honest about the stuff most people keep quiet.</li>
+          <li><strong>A monthly email from me</strong>, with one lesson, one question and what's coming up.</li>
+        </ul>
+        <p><strong>Where to start:</strong> pick the suit that makes you squirm a bit, watch its free lesson and answer the Mirror question at the end. Nobody sees your answer but you.</p>
+        ${button(`${SITE}/#/deck`, 'Watch your first lesson')}
+        <p><strong>When you want more:</strong> the Full Deck is £19 a month. It's the first five cards of every suit, a seat at the Table to post and reply, and a live Friday Table with me every month. Founding members keep that price for as long as they stay.</p>
+        <p>No rush. Start with one lesson.</p>`),
+    };
+  }
 
   if (tier === 'deck') {
     return {
@@ -149,4 +171,74 @@ export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
     results.push({ member: m.id, tier: m.tier, sent: true });
   }
   return { welcomes: results.length };
+}
+
+/** Free welcomes only go to accounts made from this date (older accounts are Jack's tests). */
+const OPEN_WELCOME_FROM = '2026-11-02T00:00:00Z';
+const HOUR = 60 * 60 * 1000;
+
+/**
+ * Open Hand welcomes, from the hourly sync: confirmed free members with no welcome yet. Wait an hour after
+ * they confirm, or a day if they chose a paid plan at sign-up (they're probably at checkout, and will get
+ * that plan's welcome instead).
+ */
+export async function sendOpenWelcomes(admin: SupabaseClient) {
+  const [{ data: members, error }, { data: sent, error: sentError }] = await Promise.all([
+    admin.from('profiles').select('id, name, requested_tier, created_at').eq('tier', 'open').eq('is_admin', false).gte('created_at', OPEN_WELCOME_FROM),
+    admin.from('welcome_sent').select('member_id'),
+  ]);
+  if (error) throw error;
+  if (sentError) throw sentError;
+  const welcomed = new Set((sent ?? []).map((s) => s.member_id));
+  const friday = nextFridayTable();
+  let count = 0;
+
+  for (const m of members ?? []) {
+    if (welcomed.has(m.id)) continue;
+    const { data: user } = await admin.auth.admin.getUserById(m.id);
+    const confirmedAt = user?.user?.email_confirmed_at ? Date.parse(user.user.email_confirmed_at) : null;
+    if (!user?.user?.email || !confirmedAt) continue;
+    const wantedPaid = m.requested_tier && m.requested_tier !== 'open';
+    if (Date.now() - confirmedAt < (wantedPaid ? 24 * HOUR : HOUR)) continue;
+
+    const { subject, html } = welcomeEmail('open', m.name, friday);
+    if (count > 0) await sleep(600);
+    await resend('/emails', {
+      method: 'POST',
+      idempotencyKey: `welcome-${m.id}-open`,
+      body: JSON.stringify({
+        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+        to: [user.user.email],
+        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+        subject,
+        html,
+      }),
+    });
+    const { error: insertError } = await admin.from('welcome_sent').upsert({ member_id: m.id, tier: 'open' }, { onConflict: 'member_id,tier', ignoreDuplicates: true });
+    if (insertError) console.error('Could not record welcome', m.id, 'open', insertError);
+    console.log('Welcome sent', m.id, 'open');
+    count++;
+  }
+  return { openWelcomes: count };
+}
+
+/** Jack's test copies: all four welcomes to one address, marked [Test]. Records nothing. */
+export async function sendTestWelcomes(to: string, name = 'Jack') {
+  const friday = nextFridayTable();
+  const plans: Plan[] = ['open', 'deck', 'ace', 'royal'];
+  for (const [i, plan] of plans.entries()) {
+    const { subject, html } = welcomeEmail(plan, name, friday);
+    if (i > 0) await sleep(600);
+    await resend('/emails', {
+      method: 'POST',
+      body: JSON.stringify({
+        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+        to: [to],
+        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+        subject: `[Test] ${subject}`,
+        html,
+      }),
+    });
+  }
+  return { testsSent: plans.length, to };
 }
