@@ -37,11 +37,33 @@ function lastFridayOf(year: number, month: number): Date {
   return d;
 }
 
-/** Friday Table runs on the last Friday of each month at 7pm. */
+/**
+ * Months whose Friday Table moves off the last Friday: 'YYYY-MM' → the date it moves to (still 7pm).
+ * Keep in step with FRIDAY_TABLE_MOVED in supabase/functions/member-mail/welcome.ts.
+ */
+export const FRIDAY_TABLE_MOVED: Record<string, string> = {
+  '2026-12': '2027-01-01', // Christmas Day → New Year's Day
+};
+
+/** The Friday Table for a month: its last Friday at 7pm, unless that month's call has moved. */
+function fridayTableFor(year: number, month: number): Date {
+  const first = new Date(year, month, 1);
+  const key = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}`;
+  const moved = FRIDAY_TABLE_MOVED[key];
+  if (moved) {
+    const [y, m, d] = moved.split('-').map(Number);
+    return new Date(y, m - 1, d, 19, 0);
+  }
+  return lastFridayOf(first.getFullYear(), first.getMonth());
+}
+
+/** Friday Table runs on the last Friday of each month at 7pm (see FRIDAY_TABLE_MOVED for exceptions). */
 export function nextFridayTable(now: Date): Date {
-  const thisMonth = lastFridayOf(now.getFullYear(), now.getMonth());
-  if (thisMonth.getTime() + 2 * 60 * 60 * 1000 > now.getTime()) return thisMonth;
-  return lastFridayOf(now.getFullYear(), now.getMonth() + 1);
+  // A moved call can fall in the next month, so look at last month's too. Each stays "next" until 9pm.
+  const candidates = [-1, 0, 1, 2].map((offset) => fridayTableFor(now.getFullYear(), now.getMonth() + offset));
+  return candidates
+    .filter((d) => d.getTime() + 2 * 60 * 60 * 1000 > now.getTime())
+    .sort((a, b) => a.getTime() - b.getTime())[0];
 }
 
 export const fmtDayShort = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short' });

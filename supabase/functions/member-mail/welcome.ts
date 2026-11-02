@@ -10,19 +10,29 @@ const SITE = 'https://jackofalltrades.life';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-/** The last Friday of a month at 7pm UK time (the app uses the same rule). */
-function lastFriday(year: number, month: number): Date {
-  const d = new Date(Date.UTC(year, month + 1, 0, 12));
+/** Months whose Friday Table moves off the last Friday. Keep in step with FRIDAY_TABLE_MOVED in src/dates.ts. */
+const FRIDAY_TABLE_MOVED: Record<string, string> = {
+  '2026-12': '2027-01-01', // Christmas Day → New Year's Day
+};
+
+/** A month's Friday Table day (UTC noon on that date): its last Friday, unless that month's call moved. */
+function fridayTableFor(year: number, month: number): Date {
+  const first = new Date(Date.UTC(year, month, 1, 12));
+  const moved = FRIDAY_TABLE_MOVED[first.toISOString().slice(0, 7)];
+  if (moved) return new Date(`${moved}T12:00:00Z`);
+  const d = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0, 12));
   while (d.getUTCDay() !== 5) d.setUTCDate(d.getUTCDate() - 1);
   return d;
 }
 export function nextFridayTable(now = new Date()): string {
-  const thisMonth = lastFriday(now.getUTCFullYear(), now.getUTCMonth());
-  // Still upcoming if it's that day or later in the month (the call is in the evening).
-  const day = thisMonth.toISOString().slice(0, 10) >= now.toISOString().slice(0, 10)
-    ? thisMonth
-    : lastFriday(now.getUTCFullYear(), now.getUTCMonth() + 1);
-  return day.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  // A moved call can fall in the next month, so look at last month's too. The call is in the evening, so
+  // a call today still counts as next.
+  const today = now.toISOString().slice(0, 10);
+  const next = [-1, 0, 1, 2]
+    .map((offset) => fridayTableFor(now.getUTCFullYear(), now.getUTCMonth() + offset))
+    .filter((d) => d.toISOString().slice(0, 10) >= today)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  return next.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
 const button = (href: string, label: string) =>
