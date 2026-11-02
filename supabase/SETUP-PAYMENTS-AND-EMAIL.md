@@ -195,6 +195,16 @@ To switch it on:
 To send the monthly email: Resend → Broadcasts → new broadcast → segment "Members" → from
 `Jack <hello@jackofalltrades.life>`. Keep the unsubscribe link in the footer. Send yourself a test first.
 
+## Welcome emails
+
+`member-mail` sends each welcome once, from Jack, with replies going to jackofalltrades.life@gmail.com:
+- **Full Deck, Ace, Royal Flush:** the moment a member's plan goes up (a database trigger on `profiles`).
+  The hourly sync catches any that didn't go out. Nobody is welcomed to a lower plan after a downgrade.
+- **Open Hand:** from the hourly sync, an hour after a free member confirms their email. If they picked a
+  paid plan at sign-up, it waits a day, so they normally get the paid welcome instead.
+- Admin accounts never get one. `public.welcome_sent` records what's gone out.
+- Test copies of all four: `select private.call_member_mail_body('{"job":"welcome-test","to":"you@example.com"}');`
+
 ## Friday Table call link
 
 The last Friday of each month at 7pm. Jack pastes one recurring Google Meet link on the You page. Full Deck

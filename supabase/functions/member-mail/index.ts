@@ -6,7 +6,9 @@
 //                        broadcast to that segment; Resend adds the unsubscribe link and honours it, and
 //                        this sync never re-subscribes anyone.
 //   { "job": "welcome", "member_id"? }  a member's plan just went up (database trigger): send that plan's
-//                        welcome email. The hourly sync also catches any welcome that didn't go out.
+//                        welcome email. The hourly sync also catches any welcome that didn't go out, and
+//                        sends the Open Hand welcome to new free members.
+//   { "job": "welcome-test", "to" }  Jack's test copies of every welcome email, marked [Test].
 //   { "job": "digest" }  every evening. Emails Jack a round-up of the day's new Table posts and replies
 //                        (not his own), only on days with activity. Ace and Royal Flush posts are flagged,
 //                        since those members get first replies from Jack.
@@ -16,7 +18,7 @@
 // default jackofalltrades.life@gmail.com), MAIL_FROM (default "Jack of All Trades <hello@jackofalltrades.life>").
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { fromCron, json, resend, sleep } from './resend.ts';
-import { sendWelcomes } from './welcome.ts';
+import { sendOpenWelcomes, sendTestWelcomes, sendWelcomes } from './welcome.ts';
 
 const SEGMENT_NAME = 'Members';
 const SITE = 'https://jackofalltrades.life';
@@ -202,17 +204,24 @@ Deno.serve(async (req) => {
     console.error('member-mail: RESEND_API_KEY is not set');
     return json({ error: 'Email is not switched on yet' }, 503);
   }
-  const { job, member_id } = (await req.json().catch(() => ({}))) as { job?: string; member_id?: string };
+  const body = (await req.json().catch(() => ({}))) as { job?: string; member_id?: string };
+  const { job, member_id } = body;
   try {
     if (job === 'sync') {
       const list = await syncMailingList();
       // Safety net: any paying member still owed a welcome (for example, if the instant call failed).
       const welcome = await sendWelcomes(admin);
-      return json({ ...list, ...welcome });
+      const open = await sendOpenWelcomes(admin);
+      return json({ ...list, ...welcome, ...open });
     }
     if (job === 'welcome') {
       if (member_id && !/^[0-9a-f-]{36}$/i.test(member_id)) return json({ error: 'Bad member id' }, 400);
       return json(await sendWelcomes(admin, member_id));
+    }
+    if (job === 'welcome-test') {
+      const { to } = body as { to?: string };
+      if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return json({ error: 'Give an email address as "to"' }, 400);
+      return json(await sendTestWelcomes(to));
     }
     if (job === 'digest') return json(await tableDigest());
     return json({ error: 'Unknown job' }, 400);
