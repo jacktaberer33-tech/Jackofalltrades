@@ -72,14 +72,37 @@ export interface AdminMemberRow {
   created_at: string;
 }
 
+/** Shown when someone signs in before clicking the link in their confirmation email. */
+export const UNCONFIRMED = 'Confirm your email first: open the link we sent you, then sign in.';
+
+/** Common slips in email domains, for a "did you mean" hint before anyone joins with a dead address. */
+const DOMAIN_FIXES: Record<string, string> = {
+  'gmial.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com',
+  'gmai.com': 'gmail.com', 'gnail.com': 'gmail.com', 'googlemail.co': 'googlemail.com',
+  'hotmial.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.co': 'hotmail.co.uk', 'hotmail.con': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.co': 'outlook.com', 'outlook.con': 'outlook.com',
+  'iclod.com': 'icloud.com', 'icloud.co': 'icloud.com', 'icoud.com': 'icloud.com',
+  'yahoo.co': 'yahoo.co.uk', 'yaho.com': 'yahoo.com', 'yahooo.com': 'yahoo.com',
+  'btinternet.co': 'btinternet.com', 'live.co': 'live.co.uk',
+};
+/** The corrected address if the domain looks like a typo, else null. */
+export function suggestEmail(email: string): string | null {
+  const at = email.trim().lastIndexOf('@');
+  if (at < 1) return null;
+  const domain = email.trim().slice(at + 1).toLowerCase();
+  const fix = DOMAIN_FIXES[domain];
+  return fix ? `${email.trim().slice(0, at)}@${fix}` : null;
+}
+
 /** Turns Supabase/Postgres errors into plain English for members. */
 export function friendlyError(err: { message?: string; code?: string } | null | undefined): string {
   if (!err) return 'Something went wrong. Try again.';
   const msg = err.message ?? '';
   if (/Invalid login credentials/i.test(msg)) return "That email and password don't match. Check them and try again.";
   if (/User already registered/i.test(msg)) return 'There is already an account with that email. Sign in instead.';
-  if (/Email not confirmed/i.test(msg)) return 'Confirm your email first: open the link we sent you, then sign in.';
-  if (/Email address not authorized|Error sending/i.test(msg)) return "We couldn't send an email to that address yet. Jack is still switching email on. Try again soon.";
+  if (/Email not confirmed/i.test(msg)) return UNCONFIRMED;
+  if (/Email address not authorized|Error sending/i.test(msg)) return "We couldn't send an email to that address. Check it's typed correctly, or use a different one.";
+  if (/only request this after|security purposes/i.test(msg)) return 'You can ask for another email in a minute.';
   if (/rate limit|too many/i.test(msg)) return 'Too many tries in a short time. Wait a few minutes and try again.';
   if (/Password should be at least/i.test(msg)) return 'Use a password of at least 8 characters.';
   if (/bookings_slot_taken/i.test(msg)) return 'Someone has just taken that slot. Pick another time.';

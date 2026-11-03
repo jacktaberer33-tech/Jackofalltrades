@@ -292,6 +292,11 @@ function useStoreValue() {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       return error ? friendlyError(error) : null;
     },
+    /** Sends the sign-up confirmation email again, for someone who can't find it. */
+    async resendConfirmation(email: string): Promise<Err> {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/` } });
+      return error ? friendlyError(error) : null;
+    },
     async sendReset(email: string): Promise<Err> {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/` });
       return error ? friendlyError(error) : null;
