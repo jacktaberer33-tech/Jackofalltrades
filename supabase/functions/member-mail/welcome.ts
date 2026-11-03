@@ -99,7 +99,8 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <p>Welcome to Ace. You've got the whole deck now, every card from Ace to King in all four suits, and me in your corner once a month.</p>
         <p><strong>First, book your 1:1.</strong> Open Your 1:1 in the app and pick a time this month. It's 45 minutes on video, and I'll send the link the day before. Bring the thing you can't say anywhere else.</p>
         ${button(`${SITE}/#/ace`, 'Book your 1:1')}
-        <p><strong>Your accountability group:</strong> I'm putting the groups of six together. I'll tell you who's in yours and how it'll run.</p>
+        <p><strong>Your accountability group:</strong> 30 minutes on Google Meet every other week, with up to five other Ace members. Groups start small and fill up to six, and you keep the same group. I'll email you who's in yours and the first call time. If a friend's code brought you here, you'll go in their group if there's room.</p>
+        <p><strong>Bring a friend:</strong> your code is on your You page. A friend who joins Ace with it gets £50 off their first payment, and you get £50 off your next one.</p>
         <p><strong>The Table:</strong> when you post, you get first replies from me.</p>
         ${fridayLine}`),
     };

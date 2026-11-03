@@ -892,3 +892,16 @@ a.brand { text-decoration: none; }
 .term-option__price { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
 .term-picker--on-block .term-option { background: transparent; border-color: var(--block-muted); color: var(--block-ink); }
 .term-picker--on-block .term-option.is-on { border-color: var(--block-ink); }
+
+/* Bring a friend (referral code on the You page) */
+.refer-code { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--sunk); }
+.refer-code__value { font-family: var(--font-mono); font-size: 22px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink); overflow-wrap: anywhere; }
+.referrals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.referrals li + li { border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* Arriving from a friend's referral link */
+.invite { background: var(--accent); color: var(--on-accent); }
+.invite__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding-top: 14px; padding-bottom: 14px; }
+.invite__inner p { margin: 0; max-width: 62ch; }
+.invite__code { font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
+.invite .btn--light { background: var(--on-accent); color: var(--face-ink); border-color: var(--on-accent); }

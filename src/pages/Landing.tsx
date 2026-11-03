@@ -8,6 +8,7 @@ import { CardFace, LogoMark } from '../components/Cards';
 import { SiteFooter } from '../components/SiteFooter';
 import { Icon } from '../components/Icon';
 import { AuthSheet, type AuthMode } from '../components/AuthSheet';
+import { pendingRef } from '../referral';
 
 // Captured before Supabase tidies the address bar: true when this visit came from a sign-up confirmation link.
 let arrivedFromEmail = (() => {
@@ -49,6 +50,8 @@ export function Landing() {
   }));
   const [royalLeft, setRoyalLeft] = useState<number | null>(null);
   const member = state.member;
+  const inviteCode = pendingRef();
+  const showInvite = !!inviteCode && !(member && (isPaying(member) || member.tier === 'ace' || member.tier === 'royal'));
 
   useEffect(() => {
     let live = true;
@@ -109,6 +112,17 @@ export function Landing() {
           </nav>
         </div>
       </header>
+
+      {showInvite && (
+        <aside className="invite" aria-label="Your invitation">
+          <div className="wrap invite__inner">
+            <p>
+              <strong>A friend has invited you to Ace.</strong> Join with their code <span className="invite__code">{inviteCode}</span> and get £50 off your first payment.
+            </p>
+            <button type="button" className="btn btn--light btn--sm" onClick={() => join('ace')}>Join Ace</button>
+          </div>
+        </aside>
+      )}
 
       <section className="band band--paper">
         <div className="wrap hero">

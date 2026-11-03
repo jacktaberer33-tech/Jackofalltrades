@@ -11,6 +11,8 @@
 // Stripe → Settings → Public details).
 // Upgrades open a second billing-portal configuration whose metadata.purpose is "upgrade-confirm":
 // it includes Royal Flush, which the default configuration leaves out because of the 5-place cap.
+// Referrals: joining Ace with a friend's code (sent as `ref`, or saved on the account at sign-up) applies
+// their promotion code automatically. Otherwise checkout has a box to type a code in.
 import Stripe from 'npm:stripe@23.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
@@ -33,6 +35,8 @@ const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 const INTEGRATION_ID = 'jack-membership-checkout-qvtrmzke';
 const ROYAL_FULL = "Royal Flush is full right now. You're welcome to join the waitlist.";
 const UPGRADE_CONFIG = 'upgrade-confirm';
+const REF_PATTERN = /^[A-Z0-9-]{4,24}$/;
+const cleanRef = (v: unknown) => (typeof v === 'string' && REF_PATTERN.test(v.trim().toUpperCase()) ? v.trim().toUpperCase() : null);
 
 function siteFor(req: Request): string {
   const site = (Deno.env.get('SITE_URL') ?? 'https://jackofalltrades.life').replace(/\/$/, '');
@@ -66,7 +70,7 @@ Deno.serve(async (req) => {
     const user = auth?.user;
     if (authError || !user) return json({ error: 'Sign in first.' }, 401);
 
-    const { plan, term } = (await req.json().catch(() => ({}))) as { plan?: string; term?: string };
+    const { plan, term, ref } = (await req.json().catch(() => ({}))) as { plan?: string; term?: string; ref?: string };
     const keys = plan ? LOOKUP[plan] : undefined;
     if (!keys) return json({ error: 'Pick the Full Deck, Ace or Royal Flush.' }, 400);
     const lookupKey = (term && keys[term]) || Object.values(keys)[0];
@@ -136,14 +140,28 @@ Deno.serve(async (req) => {
       if (error) throw error;
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // A friend's referral code, if this is Ace and the code belongs to someone else who's still on Ace or Royal Flush.
+    let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+    const refCode = plan === 'ace' ? cleanRef(ref) ?? cleanRef(user.user_metadata?.ref) : null;
+    if (refCode) {
+      const { data: owner } = await admin
+        .from('referral_codes')
+        .select('member_id, promo_id, active, profiles!inner(tier)')
+        .eq('code', refCode)
+        .maybeSingle();
+      const ownerTier = (owner?.profiles as unknown as { tier?: string } | null)?.tier;
+      if (owner?.active && owner.member_id !== user.id && (ownerTier === 'ace' || ownerTier === 'royal')) {
+        discounts = [{ promotion_code: owner.promo_id }];
+      }
+    }
+
+    const params: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       customer: customerId,
       client_reference_id: user.id,
       line_items: [{ price: price.id, quantity: 1 }],
       subscription_data: { metadata: { user_id: user.id } },
       metadata: { user_id: user.id },
-      allow_promotion_codes: true,
       consent_collection: { terms_of_service: 'required' },
       custom_text: {
         terms_of_service_acceptance: {
@@ -155,7 +173,16 @@ Deno.serve(async (req) => {
       ...(plan === 'royal' ? { expires_at: Math.floor(Date.now() / 1000) + 31 * 60 } : {}),
       success_url: `${site}/?checkout=success#/you`,
       cancel_url: `${site}/#/you`,
-    });
+    };
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(discounts ? { ...params, discounts } : { ...params, allow_promotion_codes: true });
+    } catch (err) {
+      // Stripe can refuse a code (say, this customer has paid before): carry on without it.
+      if (!discounts || !(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
+      console.warn('Referral code not applied', refCode, err.message);
+      session = await stripe.checkout.sessions.create({ ...params, allow_promotion_codes: true });
+    }
     return json({ url: session.url });
   } catch (err) {
     console.error('create-checkout failed', err);

@@ -112,6 +112,8 @@ named `jackofalltrades-site`, with:
 | Subscriptions | Write |
 | Prices, Products | Read |
 | Charges | Read |
+| Coupons | Read |
+| Promotion codes | Write |
 
 Supabase → Edge Functions → **Secrets**: `STRIPE_SECRET_KEY` = the `rk_…` key,
 `STRIPE_WEBHOOK_SECRET` = the `whsec_…` from step 5, `SITE_URL` = `https://jackofalltrades.life`.
@@ -210,3 +212,27 @@ To send the monthly email: Resend → Broadcasts → new broadcast → segment "
 The last Friday of each month at 7pm. Jack pastes one recurring Google Meet link on the You page. Full Deck
 members and above see a Join button on Home on the day; the link is in `public.friday_table`, readable only
 by paying members and Jack.
+
+## Ace referrals: give £50, get £50
+
+Every Ace and Royal Flush member sees a **Bring a friend** card on their You page with a personal code
+(like `CAM-7K2P`) and a link (`jackofalltrades.life/?ref=CAM-7K2P`). A friend who joins Ace with it
+gets £50 off their first payment, and the member gets £50 of Stripe credit off their next payment.
+The rules members see are in the Membership Terms, under "Bring a friend".
+
+How it fits together:
+
+- **Stripe coupon `ace-referral-50`**: £50 off, once, Ace product only. Each member's code is a
+  promotion code on it, limited to customers who have never paid. The `referral` function makes a
+  member's code the first time they open the You page.
+- **Checkout** applies the code automatically when someone arrives through a link (it's saved on their
+  account at sign-up, so it survives the confirmation email). People can also type a code in at checkout.
+- **The webhook** records the referral (`public.referrals`) and adds the £50 credit to the referrer's
+  Stripe customer. If the friend's first payment is refunded or disputed, any unused credit is taken
+  back. A member's code is paused while they're not on Ace or Royal Flush.
+- **Your You page** lists every referral under Members, so you can put friends in the same group. If a
+  credit couldn't be added, it says so: add it by hand in Stripe → the member's customer →
+  Credit balance → Adjust balance, −£50.
+
+The restricted key needs **Coupons: Read** and **Promotion codes: Write** (table above), plus
+**Customers: Write**, which it already has, for the credit.
