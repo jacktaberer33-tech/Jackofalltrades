@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { LESSONS, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
-import { effectiveTier, isPaying, useStore } from '../store';
+import { effectiveTier, isPaying, useStore, type AdminReferralRow, type Referral } from '../store';
+import { referralLink } from '../referral';
 import { Link, useRouter } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
 import type { AdminMemberRow } from '../supabase';
@@ -78,6 +79,7 @@ export function You() {
       </section>
 
       {!member.isAdmin && <YourHand />}
+      {!member.isAdmin && (member.tier === 'ace' || member.tier === 'royal') && <BringAFriend />}
 
       <section className="stack-10" aria-labelledby="account-title">
         <h2 id="account-title" className="display-s">Account</h2>
@@ -130,12 +132,15 @@ export function You() {
 function Members() {
   const { state, actions } = useStore();
   const [rows, setRows] = useState<AdminMemberRow[] | null>(null);
+  const [referrals, setReferrals] = useState<AdminReferralRow[]>([]);
 
   useEffect(() => {
     let live = true;
     actions.adminMembers().then((r) => live && setRows(r ?? []));
+    actions.adminReferrals().then((r) => live && setReferrals(r));
     return () => { live = false; };
   }, [actions]);
+  const nameOf = (id: string | null) => (id && rows?.find((r) => r.id === id)?.name) || 'A closed account';
 
   const change = async (id: string, tier: Tier) => {
     const err = await actions.setMemberTier(id, tier);
@@ -179,6 +184,94 @@ function Members() {
         </div>
       )}
       <p className="small muted">Changing a plan here doesn't touch Stripe. Use it for free places and fixes; paid plans update themselves.</p>
+      {rows && referrals.length > 0 && (
+        <div className="card stack-10">
+          <p className="strong">Referrals</p>
+          <p className="small muted">Put each friend in the group of the member who brought them, if there's room.</p>
+          <ul className="referrals">
+            {referrals.map((r) => (
+              <li key={r.id} className="stack-2">
+                <span><strong>{nameOf(r.friend_id)}</strong> joined Ace with {nameOf(r.referrer_id)}'s code <span className="muted">({r.code})</span></span>
+                <span className="small muted">
+                  {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  {' · '}
+                  {r.credit_note ?? (r.credited_at ? `£50 credit given to ${nameOf(r.referrer_id)}` : 'Credit pending')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Ace and Royal Flush: their referral code and link. Give £50, get £50. */
+function BringAFriend() {
+  const { actions } = useStore();
+  const [ref, setRef] = useState<Referral | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    actions.referral().then((r) => live && setRef(r));
+    return () => { live = false; };
+  }, [actions]);
+
+  if (ref?.status === 'not_eligible') return null;
+  const code = ref?.status === 'ready' ? ref.code : null;
+  const link = code ? referralLink(code) : '';
+
+  const copy = async (text: string, done: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      actions.notify('ok', done);
+    } catch {
+      actions.notify('error', "Couldn't copy. Press and hold to select it instead.");
+    }
+  };
+  const share = async () => {
+    if (!code) return;
+    const text = `Join Ace at Jack of All Trades with my code ${code} and get £50 off your first payment.`;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'Jack of All Trades', text, url: link });
+        return;
+      } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') return; // they closed the share sheet
+      }
+    }
+    await copy(link, 'Link copied. Send it to your friend.');
+  };
+
+  return (
+    <section className="stack-10" aria-labelledby="refer-title">
+      <h2 id="refer-title" className="display-s">Bring a friend</h2>
+      <div className="card stack-12">
+        <p>
+          A friend who joins Ace with your code gets <strong>£50 off</strong> their first payment, and you get{' '}
+          <strong>£50 off</strong> your next one. If there's room, they'll go in your group.
+        </p>
+        {ref === null && <p className="small muted">Getting your code…</p>}
+        {ref?.status === 'error' && <p className="form-error" role="alert">{ref.message}</p>}
+        {code && (
+          <>
+            <div className="refer-code">
+              <span className="small muted">Your code</span>
+              <span className="refer-code__value selectable">{code}</span>
+            </div>
+            <div className="row-wrap">
+              <button type="button" className="btn btn--accent btn--sm" onClick={share}>Share your link</button>
+              <button type="button" className="btn btn--outline btn--sm" onClick={() => copy(code, 'Code copied.')}>Copy code</button>
+            </div>
+            <p className="small muted">
+              {ref?.status === 'ready' && ref.joined > 0
+                ? `${ref.joined} ${ref.joined === 1 ? 'friend has' : 'friends have'} joined with your code.`
+                : 'Nobody has used your code yet.'}{' '}
+              It's for new members joining Ace. See the <Link to="/terms">Membership Terms</Link> for the full rules.
+            </p>
+          </>
+        )}
+      </div>
     </section>
   );
 }

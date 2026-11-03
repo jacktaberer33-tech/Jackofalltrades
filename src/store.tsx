@@ -10,6 +10,7 @@ import {
   type ProfileRow,
   type ReplyRow,
 } from './supabase';
+import { pendingRef } from './referral';
 
 // Everything the screens need lives here. The screens never talk to Supabase directly,
 // so payments (Stripe) can be added later without touching them.
@@ -131,6 +132,22 @@ const toMember = (p: ProfileRow, email: string): Member => ({
 /** True while a member has a subscription Stripe is still charging (or retrying). */
 export function isPaying(member: Member | null): boolean {
   return !!member && ['active', 'trialing', 'past_due'].includes(member.billing.status ?? '');
+}
+
+export type Referral =
+  | { status: 'ready'; code: string; joined: number }
+  | { status: 'not_eligible' }
+  | { status: 'error'; message: string };
+
+export interface AdminReferralRow {
+  id: string;
+  referrer_id: string | null;
+  friend_id: string | null;
+  code: string;
+  credited_at: string | null;
+  credit_note: string | null;
+  reversed_at: string | null;
+  created_at: string;
 }
 
 export type LessonVideo =
@@ -283,7 +300,11 @@ function useStoreValue() {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { name: name.trim(), requested_tier: tier }, emailRedirectTo: `${window.location.origin}/` },
+        // A friend's referral code rides along on the account, so it still applies after the confirmation email.
+        options: {
+          data: { name: name.trim(), requested_tier: tier, ...(pendingRef() ? { ref: pendingRef() } : {}) },
+          emailRedirectTo: `${window.location.origin}/`,
+        },
       });
       if (error) return { error: friendlyError(error), needsConfirm: false };
       return { error: null, needsConfirm: !data.session };
@@ -351,7 +372,8 @@ function useStoreValue() {
      * on a confirm screen for the plan and term they picked.
      */
     async startCheckout(plan: 'deck' | 'ace' | 'royal', term?: Term): Promise<Err> {
-      const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan, term } });
+      const ref = plan === 'ace' ? pendingRef() : null;
+      const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan, term, ...(ref ? { ref } : {}) } });
       if (error || !data?.url) {
         const text = error ? await functionError(error) : 'Checkout did not start. Try again.';
         notify('error', text);
@@ -369,6 +391,17 @@ function useStoreValue() {
       }
       window.location.assign(data.url as string);
       return null;
+    },
+
+    /** Ace and Royal Flush: the member's referral code, made the first time they ask, and how many friends have used it. */
+    async referral(): Promise<Referral> {
+      const { data, error } = await supabase.functions.invoke('referral', { body: {} });
+      if (error) return { status: 'error', message: await functionError(error) };
+      if (data?.status === 'ready' && typeof data.code === 'string') {
+        return { status: 'ready', code: data.code, joined: typeof data.joined === 'number' ? data.joined : 0 };
+      }
+      if (data?.status === 'not_eligible') return { status: 'not_eligible' };
+      return { status: 'error', message: "Your referral code didn't load. Refresh to try again." };
     },
 
     // ---------- Lessons ----------
@@ -572,6 +605,18 @@ function useStoreValue() {
         return null;
       }
       return data as AdminMemberRow[];
+    },
+    /** Jack only: who brought whom, and what happened to each £50 credit. */
+    async adminReferrals(): Promise<AdminReferralRow[]> {
+      const { data, error } = await supabase
+        .from('referrals')
+        .select('id, referrer_id, friend_id, code, credited_at, credit_note, reversed_at, created_at')
+        .order('created_at', { ascending: false });
+      if (error) {
+        fail(error);
+        return [];
+      }
+      return (data ?? []) as AdminReferralRow[];
     },
     async setMemberTier(memberId: string, tier: Tier): Promise<Err> {
       const { error } = await supabase.rpc('set_member_tier', { p_member: memberId, p_tier: tier });

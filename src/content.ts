@@ -249,7 +249,7 @@ export const TIERS: TierInfo[] = [
     price: '£99',
     per: '/month',
     pitch: 'For when you want me in your corner.',
-    perks: ['Everything in the Full Deck', 'The whole deck: every card, Ace to King, in all four suits', 'A 45-minute 1:1 video call with me, every month', 'A small accountability group of six', 'First replies from me on the Table'],
+    perks: ['Everything in the Full Deck', 'The whole deck: every card, Ace to King, in all four suits', 'A 45-minute 1:1 video call with me, every month', 'An accountability group of up to six, every other week', 'First replies from me on the Table'],
     options: [
       { term: 'month', label: 'Monthly', price: '£99', per: '/month' },
       { term: 'quarter', label: '3 months', price: '£269', per: '/3 months', note: 'Paid upfront · save £28' },

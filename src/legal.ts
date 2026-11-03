@@ -68,6 +68,8 @@ const privacy: LegalDoc = {
         { p: `If you're on Royal Flush, I also keep the notes and actions I write after each call, your 90-day plan, and your training plan, along with anything you tell me so that I can write it safely, such as injuries or health conditions. Your voice notes and messages to me go through WhatsApp, which means I'll see your phone number. To arrange our quarterly session in person, I'll need to agree a time and place with you. Lawful basis: contract, and your explicit consent for any health information (see "Sensitive information" below).` },
         { h3: 'Payments' },
         { p: `Payments are taken by Stripe. Your card details go straight to Stripe and are never seen or stored by me. I keep a Stripe customer reference, the status of your subscription, its renewal date, and whether you've asked for it to end. Lawful basis: contract, and my legal obligation to keep accurate financial records for tax.` },
+        { h3: 'Referrals' },
+        { p: `If you join with a friend's referral code or link, I record whose code it was and when you joined, so that I can give them their credit and, if there's room, put you in their group. The code is also saved with your account when you sign up, so it still works after you confirm your email. Your friend sees how many people have joined with their code, but not who. If you're an Ace or Royal Flush member, I keep your code and a record of the credit you've earned. Lawful basis: contract.` },
         { h3: 'Emails' },
         { p: `I send emails you need in order to use your account, such as confirming your sign-up and resetting your password, as well as emails that are part of your plan: the monthly email from me (every member gets it, and each one has a one-click unsubscribe link), call links for Ace and Royal Flush members, and important notices about your membership or these policies. Lawful basis: contract. I won't email you about anything other than your membership unless you've asked me to, and you can opt out of anything optional at any time.` },
         { h3: 'Messages you send me' },
@@ -98,6 +100,8 @@ const privacy: LegalDoc = {
             `Table posts, replies and "me too"s: all members, alongside your first name.`,
             `Your lesson progress and saved lessons: only you.`,
             `Friday Table RSVPs: other members see only the total number going.`,
+            `Ace groups: the other members of your group see your first name, and you on the call. I don't share your email address with them.`,
+            `Referrals: the member whose code you used sees how many friends have joined with it, not who.`,
             `1:1 call bookings, and any call recording you've agreed to: you and me.`,
             `Royal Flush call notes, plans, voice notes and messages: you and me.`,
             `Your email address and plan: me, so I can run the membership.`,
@@ -246,7 +250,7 @@ const terms: LegalDoc = {
         { h3: 'Full Deck: £19 a month' },
         { p: `The first five series of lessons (Ace to 5) in each of the four suits, with a Mirror question for every lesson, the ability to post and reply at the Table, and a live Friday Table session with me once a month.` },
         { h3: 'Ace: £99 a month, or £269 for 3 months, or £495 for 6 months' },
-        { p: `Everything in the Full Deck, plus every series of lessons (Ace to King) across all four suits, one 45-minute 1:1 video call with me each calendar month, a place in a small accountability group of up to six members, and first replies from me at the Table. Ace places are limited.` },
+        { p: `Everything in the Full Deck, plus every series of lessons (Ace to King) across all four suits, one 45-minute 1:1 video call with me each calendar month, a place in an accountability group of up to six members that meets every other week, and first replies from me at the Table. Ace places are limited.` },
         { h3: 'Royal Flush: £949 for 3 months, or £1,745 for 6 months' },
         { p: `Everything in Ace, plus two Joker lessons in each suit that only Royal Flush members can watch, a 45-minute 1:1 video call with me every week with written notes and three actions afterwards, voice notes between calls answered within one working day, a 60-minute kickoff call and your own 90-day plan, a personal training plan written by me, a run, ride or hike together once a quarter, and first pick of call times. Royal Flush is limited to five members at a time; when it's full, you can join the waitlist. Because the 90-day plan and the quarterly session in person run on a three-month rhythm, Royal Flush is sold in blocks of three or six months, paid upfront.` },
         { p: `Prices are in pounds sterling and are the full amount you pay. The membership is a living thing: I'll keep adding lessons, and I may update, reorder or retire older ones, or change how features work, to keep it useful. If I make a change that significantly reduces what your paid plan includes, I'll tell you in advance, and you can cancel and receive a refund for any period you've paid for but won't use.` },
@@ -267,6 +271,24 @@ const terms: LegalDoc = {
       title: 'Founding members',
       blocks: [
         { p: `The first 50 people to join a paid plan are founding members. As a founding member, your price will not go up for as long as you stay on the same plan and payment term without a break, even if I raise prices for everyone else. If you cancel and later rejoin, or switch plans, the price that applies at that time is the one you'll pay.` },
+      ],
+    },
+    {
+      id: 'referrals',
+      title: 'Bring a friend: £50 off each',
+      blocks: [
+        { p: `If you're an Ace or Royal Flush member, you get a personal referral code and link on your You page.` },
+        {
+          ul: [
+            `Your friend: joining Ace with your code or link takes £50 off their first payment, on any Ace payment term. It's for new members only: someone who has paid for a plan before can't use a code.`,
+            `You: when their first payment goes through, you get £50 of credit, which comes off your next payment or payments. You need to be a paying Ace or Royal Flush member at the time. The credit has no cash value and can't be swapped or transferred. If your membership ends before you've used it, it stays on your account for if you come back.`,
+            `If your friend's first payment is refunded (for example, because they change their mind within 14 days) or disputed, any of the £50 credit you haven't used yet is removed. Credit you've already used stays used.`,
+            `There's no limit on how many friends you can bring. You can't use your own code, and a friend can only be referred once.`,
+            `If there's room, your friend joins your accountability group.`,
+            `Your code stops working while you're not on Ace or Royal Flush, and works again if you come back.`,
+            `I may change or end the scheme. I'll give at least 14 days' notice on this page, and credit you've already earned is kept.`,
+          ],
+        },
       ],
     },
     {
@@ -314,7 +336,8 @@ const terms: LegalDoc = {
             `I may ask to record a call for training purposes. It's always your choice, and the [Privacy Policy](#/privacy) explains how recordings are kept and deleted.`,
           ],
         },
-        { p: `I arrange the Ace accountability groups, and I'll let you know who's in yours and how it will run.` },
+        { h3: 'Ace accountability groups' },
+        { p: `Each Ace group meets for 30 minutes on a video call every other week, with me. I put the groups together and tell you who's in yours and when it meets. A new group can start with fewer than six members and fills up as people join. You stay in the same group, unless someone leaves or a group needs rebalancing. If a call can't go ahead, I'll move it.` },
         { h3: 'Royal Flush' },
         { p: `Royal Flush includes one 45-minute 1:1 video call each week (Monday to Sunday), which you can book in the app up to four weeks ahead. The same rules apply as for Ace, applied to the week rather than the month. After each call, I'll send you written notes and three actions.` },
         {
