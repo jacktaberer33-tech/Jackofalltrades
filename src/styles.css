@@ -136,6 +136,7 @@ button { font: inherit; color: inherit; }
 .accent-text { color: var(--accent-text); }
 .on-block-muted { color: var(--block-muted); }
 .self-start { align-self: flex-start; }
+.self-center { align-self: center; }
 .push-right { margin-left: auto; }
 .pad-24 { padding-block: 24px; }
 .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -887,6 +888,7 @@ a.brand { text-decoration: none; }
 .term-option__label { flex: 1 1 auto; min-width: 0; font-weight: 600; display: grid; }
 .term-option__note { font-size: 12.5px; font-weight: 500; color: var(--accent-text); }
 .nowrap { white-space: nowrap; }
+.break-all { overflow-wrap: anywhere; }
 .term-option__price { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
 .term-picker--on-block .term-option { background: transparent; border-color: var(--block-muted); color: var(--block-ink); }
 .term-picker--on-block .term-option.is-on { border-color: var(--block-ink); }

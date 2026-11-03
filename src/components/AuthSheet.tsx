@@ -4,6 +4,7 @@ import { TermPicker } from './TermPicker';
 import { useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
 import { Icon } from './Icon';
+import { UNCONFIRMED, suggestEmail } from '../supabase';
 
 export type AuthMode = 'signup' | 'signin' | 'reset' | 'newPassword';
 
@@ -25,13 +26,49 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const firstField = useRef<HTMLInputElement>(null);
+  // After joining: the address the confirmation link went to, so they can resend it or fix a typo.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resent, setResent] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const firstField = useRef<HTMLInputElement | null>(null);
+  const emailField = useRef<HTMLInputElement | null>(null);
+  const suggestion = mode !== 'newPassword' ? suggestEmail(email) : null;
 
   useEffect(() => {
     firstField.current?.focus();
     setError(null);
     setDone(null);
+    setSentTo(null);
+    setResent(null);
   }, [mode]);
+
+  // Supabase allows one resend a minute.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [cooldown]);
+
+  const resend = async (to: string) => {
+    setBusy(true);
+    setResent(null);
+    setError(null);
+    const err = await actions.resendConfirmation(to);
+    setBusy(false);
+    if (err) setError(err);
+    else {
+      setResent(`Sent again to ${to}. It can take a minute or two.`);
+      setCooldown(60);
+    }
+  };
+
+  const startAgain = () => {
+    setSentTo(null);
+    setResent(null);
+    setError(null);
+    setEmail('');
+    window.setTimeout(() => emailField.current?.focus(), 0);
+  };
 
   const switchTo = (m: AuthMode) => () => setMode(m);
 
@@ -45,7 +82,10 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
       } else {
         const res = await actions.signUp(name, email, password, tier);
         if (res.error) setError(res.error);
-        else if (res.needsConfirm) setDone(`Nearly there. We've sent a link to ${email.trim()}. Open it to finish joining.`);
+        else if (res.needsConfirm) {
+          setSentTo(email.trim());
+          setCooldown(60);
+        }
         else {
           onSignedIn?.(tier, term);
           onClose();
@@ -96,7 +136,23 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
           )}
         </div>
 
-        {done ? (
+        {sentTo ? (
+          <div className="stack-16">
+            <p className="body-l">Nearly there. We've sent a link to <strong className="break-all">{sentTo}</strong>. Open it to finish joining.</p>
+            <p className="small muted">Can't see it? Check your Junk or Spam folder. It's from hello@jackofalltrades.life, with the subject "Take your seat at the Table".</p>
+            {resent && <p className="small" role="status">{resent}</p>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="stack-8">
+              <button type="button" className="btn btn--outline" disabled={busy || cooldown > 0} onClick={() => resend(sentTo)}>
+                {busy ? 'Sending…' : cooldown > 0 ? `Send it again (in ${cooldown}s)` : 'Send it again'}
+              </button>
+              <button type="button" className="link-btn small self-center" onClick={onClose}>Close</button>
+            </div>
+            <p className="small muted center">
+              Wrong email? <button type="button" className="link-btn small" onClick={startAgain}>Start again with the right one</button>
+            </p>
+          </div>
+        ) : done ? (
           <div className="stack-16">
             <p className="body-l">{done}</p>
             <button type="button" className="btn btn--outline" onClick={onClose}>Close</button>
@@ -134,7 +190,10 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
               <div className="field">
                 <label htmlFor="auth-email" className="label">Email</label>
                 <input
-                  ref={mode === 'signup' ? undefined : firstField}
+                  ref={(el) => {
+                    emailField.current = el;
+                    if (mode !== 'signup') firstField.current = el;
+                  }}
                   id="auth-email"
                   className="input"
                   type="email"
@@ -144,6 +203,11 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
+                {suggestion && (
+                  <p className="small" role="status">
+                    Did you mean <button type="button" className="link-btn small" onClick={() => setEmail(suggestion)}>{suggestion}</button>?
+                  </p>
+                )}
               </div>
             )}
 
@@ -166,6 +230,15 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
             )}
 
             {error && <p className="form-error" role="alert">{error}</p>}
+            {mode === 'signin' && (error === UNCONFIRMED || resent) && email.trim() && (
+              <div className="stack-6">
+                <p className="small muted">Can't find it? Check your Junk or Spam folder, or get a fresh link.</p>
+                {resent && <p className="small" role="status">{resent}</p>}
+                <button type="button" className="btn btn--outline btn--sm self-start" disabled={busy || cooldown > 0} onClick={() => resend(email.trim())}>
+                  {cooldown > 0 ? `Send the link again (in ${cooldown}s)` : 'Send the link again'}
+                </button>
+              </div>
+            )}
 
             <button type="submit" className="btn btn--accent btn--block btn--lg" disabled={busy}>
               {busy ? 'One moment…' : submitLabel}
