@@ -61,7 +61,7 @@ export function Home() {
       {waitingFor && (PAYMENTS_LIVE ? (
         <section className="card card--edge stack-10">
           <p className="strong">{tierById(waitingFor).name} is open.</p>
-          <p className="small muted">You asked to join while payments were being set up. Your seat is ready whenever you are.</p>
+          <p className="small muted">You picked {tierById(waitingFor).name} when you joined. Your seat is ready whenever you are.</p>
           <PlanAction plan={waitingFor} />
         </section>
       ) : (
