@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="band band--block footer">
       <div className="wrap footer__inner">
         <span className="footer__brand"><SuitMark suit="spades" /> Jack of All Trades</span>
-        <a className="footer__link" href="https://www.instagram.com/f_taberer/" target="_blank" rel="noopener noreferrer">Instagram: @f_taberer</a>
+        <a className="footer__link" href="https://www.instagram.com/jackofalltrades_life/" target="_blank" rel="noopener noreferrer">Instagram: @jackofalltrades_life</a>
         <nav className="footer__legal" aria-label="Policies">
           {LEGAL_ORDER.map((s) => (
             <Link key={s} to={`/${s}`} className="footer__link">{LEGAL_LINK_LABELS[s]}</Link>
