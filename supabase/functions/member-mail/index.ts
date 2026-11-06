@@ -9,6 +9,9 @@
 //                        welcome email. The hourly sync also catches any welcome that didn't go out, and
 //                        sends the Open Hand welcome to new free members.
 //   { "job": "welcome-test", "to" }  Jack's test copies of every welcome email, marked [Test].
+//                        It then emails Jack any new alerts from the payment functions (public.jack_alerts).
+//                        Each step runs on its own, and one contact or email Resend refuses is skipped and
+//                        noted, so a single bad address can't hold up everyone else's welcome.
 //   { "job": "digest" }  every evening. Emails Jack a round-up of the day's new Table posts and replies
 //                        (not his own), only on days with activity. Ace and Royal Flush posts are flagged,
 //                        since those members get first replies from Jack.
@@ -81,19 +84,33 @@ async function syncMailingList() {
   const [members, contacts] = await Promise.all([confirmedMembers(), segmentContacts(segmentId)]);
   const inSegment = new Map(contacts.map((c) => [c.email.toLowerCase(), c]));
   let writes = 0;
-  const done = { added: 0, renamed: 0, removed: 0, left: 0 };
-  const write = async (fn: () => Promise<unknown>) => {
+  const done = { added: 0, renamed: 0, removed: 0, left: 0, failed: 0 };
+  // One write at a time, under Resend's rate limit and this run's cap. A write Resend refuses is logged
+  // and skipped (it's tried again next hour), so it can't stop the rest.
+  const write = async (what: string, fn: () => Promise<unknown>) => {
     if (writes >= MAX_WRITES) { done.left++; return false; }
     if (writes++ > 0) await sleep(WRITE_GAP_MS);
-    await fn();
-    return true;
+    try {
+      await fn();
+      return true;
+    } catch (err) {
+      done.failed++;
+      console.error('Mailing list write failed:', what, err);
+      return false;
+    }
   };
+
+  // Closed accounts first (they're rare, and the privacy policy promises their details go within the hour).
+  for (const [email, contact] of inSegment) {
+    if (members.has(email)) continue;
+    if (await write('remove contact', () => resend(`/contacts/${contact.id}`, { method: 'DELETE' }))) done.removed++;
+  }
 
   for (const [email, firstName] of members) {
     const existing = inSegment.get(email);
     const enc = encodeURIComponent(email);
     if (!existing) {
-      const ok = await write(async () => {
+      const ok = await write('add contact', async () => {
         try {
           // New contacts only: never sends `unsubscribed`, so someone who unsubscribed stays unsubscribed.
           await resend('/contacts', { method: 'POST', body: JSON.stringify({ email, first_name: firstName, segments: [{ id: segmentId }] }) });
@@ -106,16 +123,58 @@ async function syncMailingList() {
       });
       if (ok) done.added++;
     } else if ((existing.first_name ?? '') !== firstName) {
-      if (await write(() => resend(`/contacts/${enc}`, { method: 'PATCH', body: JSON.stringify({ first_name: firstName }) }))) done.renamed++;
+      if (await write('rename contact', () => resend(`/contacts/${enc}`, { method: 'PATCH', body: JSON.stringify({ first_name: firstName }) }))) done.renamed++;
     }
-  }
-  // Closed accounts: delete the contact entirely (the privacy policy promises their details go).
-  for (const [email, contact] of inSegment) {
-    if (members.has(email)) continue;
-    if (await write(() => resend(`/contacts/${contact.id}`, { method: 'DELETE' }))) done.removed++;
   }
   console.log('Mailing list synced', { members: members.size, ...done });
   return { members: members.size, ...done };
+}
+
+// ---------- Alerts for Jack ----------
+
+/** Emails Jack any alerts the payment functions have noted since the last run, in one email. */
+async function sendAlerts() {
+  const { data: alerts, error } = await admin
+    .from('jack_alerts')
+    .select('id, kind, message, created_at')
+    .is('sent_at', null)
+    .order('created_at')
+    .limit(50);
+  if (error) throw error;
+  if (!alerts?.length) return { alerts: 0 };
+  const items = alerts
+    .map((a) => `<li style="margin:0 0 12px">${esc(a.message)}<br><span style="color:#6b6b66;font-size:12px">${new Date(a.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span></li>`)
+    .join('');
+  const ids = alerts.map((a) => a.id);
+  await resend('/emails', {
+    method: 'POST',
+    idempotencyKey: `jack-alerts-${ids[0]}-${ids[ids.length - 1]}`,
+    body: JSON.stringify({
+      from: Deno.env.get('MAIL_FROM') ?? 'Jack of All Trades <hello@jackofalltrades.life>',
+      to: [Deno.env.get('ALERT_EMAIL') ?? 'jackofalltrades.life@gmail.com'],
+      subject: alerts.length === 1 ? `Needs you: ${clip(alerts[0].message, 70)}` : `Needs you: ${alerts.length} things from the site`,
+      html: `<!doctype html><html><body style="margin:0;background:#fafaf7;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#121211;line-height:1.5">
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px">
+    <p style="font-family:Menlo,monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#6b6b66;margin:0 0 12px">Jack of All Trades · needs you</p>
+    <ul style="padding-left:18px;margin:0">${items}</ul>
+    <p style="color:#6b6b66;font-size:12px">Sent to you as the admin. Members never see this email.</p>
+  </div></body></html>`,
+    }),
+  });
+  const { error: markError } = await admin.from('jack_alerts').update({ sent_at: new Date().toISOString() }).in('id', ids);
+  if (markError) console.error('Could not mark alerts sent', markError);
+  console.log('Alerts sent', ids.length);
+  return { alerts: ids.length };
+}
+
+/** Runs one step of the hourly job; a failure is logged and reported, and the other steps still run. */
+async function step<T extends object>(name: string, fn: () => Promise<T>): Promise<T | { [k: string]: string }> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error('member-mail step failed:', name, err);
+    return { [`${name}Error`]: String((err as Error)?.message ?? err).slice(0, 200) };
+  }
 }
 
 // ---------- Table round-up ----------
@@ -208,11 +267,22 @@ Deno.serve(async (req) => {
   const { job, member_id } = body;
   try {
     if (job === 'sync') {
-      const list = await syncMailingList();
+      const list = await step('list', syncMailingList);
       // Safety net: any paying member still owed a welcome (for example, if the instant call failed).
-      const welcome = await sendWelcomes(admin);
-      const open = await sendOpenWelcomes(admin);
-      return json({ ...list, ...welcome, ...open });
+      const welcome = await step('welcomes', () => sendWelcomes(admin));
+      const open = await step('openWelcomes', () => sendOpenWelcomes(admin));
+      const result: Record<string, unknown> = { ...list, ...welcome, ...open };
+      const problems = Object.keys(result).filter((k) => k.endsWith('Error')).length
+        + ['failed', 'welcomeFailures', 'openWelcomeFailures'].reduce((n, k) => n + (typeof result[k] === 'number' ? (result[k] as number) : 0), 0);
+      if (problems > 0) {
+        const day = new Date().toISOString().slice(0, 10); // at most one of these a day
+        await admin.from('jack_alerts').upsert(
+          { kind: 'mail_problem', message: `The hourly email job hit ${problems} problem${problems === 1 ? '' : 's'} (${JSON.stringify(result).slice(0, 300)}). It tries again every hour; if you get this two days running, check the member-mail logs in Supabase.`, dedupe: `mail-problem-${day}` },
+          { onConflict: 'dedupe', ignoreDuplicates: true },
+        );
+      }
+      Object.assign(result, await step('alerts', sendAlerts));
+      return json(result);
     }
     if (job === 'welcome') {
       if (member_id && !/^[0-9a-f-]{36}$/i.test(member_id)) return json({ error: 'Bad member id' }, 400);

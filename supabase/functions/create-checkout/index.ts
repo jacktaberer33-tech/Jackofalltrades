@@ -6,7 +6,12 @@
 // Secrets (Supabase → Edge Functions → Secrets): STRIPE_SECRET_KEY (a restricted rk_ key), optional SITE_URL.
 // Stripe prices are found by lookup key, one per plan and term (how long is paid for at once):
 // deck_monthly; ace_monthly, ace_quarterly, ace_halfyear; royal_quarterly, royal_halfyear.
-// Royal Flush is capped at 5 places (public.royal_places_left).
+// Royal Flush is capped at 5 places: starting a Royal Flush checkout (or upgrade) holds a place until it
+// expires (public.take_royal_hold). When it's full, the member goes on the waitlist (requested_tier) and
+// Jack gets an alert.
+// Whether someone already pays is asked of Stripe, not the profile, which only updates when the webhook
+// lands: a second Join in another tab goes to the billing portal, and any other open checkout of theirs is
+// closed, so nobody can pay twice.
 // Checkout asks members to accept the Membership Terms (live mode: set a Terms of service URL in
 // Stripe → Settings → Public details).
 // Upgrades open a second billing-portal configuration whose metadata.purpose is "upgrade-confirm":
@@ -33,7 +38,10 @@ const LOOKUP: Record<string, Record<string, string>> = {
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 // Tags these sessions in the Stripe Dashboard so this flow can be compared with any others later.
 const INTEGRATION_ID = 'jack-membership-checkout-qvtrmzke';
-const ROYAL_FULL = "Royal Flush is full right now. You're welcome to join the waitlist.";
+const ROYAL_FULL = "Royal Flush is full right now, so you're on the waitlist. I'll email you when a place opens.";
+// Checkout sessions for Royal Flush expire after 31 minutes; the hold lasts a little longer.
+const ROYAL_SESSION_MINUTES = 31;
+const ROYAL_HOLD_MINUTES = 32;
 const UPGRADE_CONFIG = 'upgrade-confirm';
 const REF_PATTERN = /^[A-Z0-9-]{4,24}$/;
 const cleanRef = (v: unknown) => (typeof v === 'string' && REF_PATTERN.test(v.trim().toUpperCase()) ? v.trim().toUpperCase() : null);
@@ -88,46 +96,75 @@ Deno.serve(async (req) => {
     if (!price) return json({ error: "That plan isn't set up in Stripe yet." }, 503);
 
     // Royal Flush has 5 places. Members already on Royal Flush can still change term.
-    const royalCheck = async () => {
+    const holdRoyal = async (): Promise<boolean> => {
       if (plan !== 'royal' || profile.tier === 'royal') return true;
-      const { data: left, error } = await admin.rpc('royal_places_left');
+      const { data: held, error } = await admin.rpc('take_royal_hold', { p_member: user.id, p_minutes: ROYAL_HOLD_MINUTES });
       if (error) throw error;
-      return !(typeof left === 'number' && left <= 0);
+      if (held === true) return true;
+      // Full: put them on the waitlist, and tell Jack.
+      await admin.from('profiles').update({ requested_tier: 'royal' }).eq('id', user.id);
+      await admin.from('jack_alerts').upsert(
+        { kind: 'royal_waitlist', member_id: user.id, message: `${profile.name} joined the Royal Flush waitlist.`, dedupe: `royal-waitlist-${user.id}` },
+        { onConflict: 'dedupe', ignoreDuplicates: true },
+      );
+      return false;
     };
+    const releaseRoyal = async () => {
+      if (plan === 'royal' && profile.tier !== 'royal') await admin.from('royal_holds').delete().eq('member_id', user.id);
+    };
+
+    // Already paying? Ask Stripe, so a second Join (another tab, or straight after paying) can't start a second plan.
+    let liveSub: Stripe.Subscription | null = null;
+    if (profile.stripe_customer_id) {
+      const subs = await stripe.subscriptions.list({ customer: profile.stripe_customer_id, status: 'all', limit: 20 });
+      const live = subs.data.filter((s) => LIVE_STATUSES.includes(s.status));
+      liveSub = live.find((s) => s.id === profile.stripe_subscription_id) ?? live[0] ?? null;
+      if (live.length > 1) {
+        await admin.from('jack_alerts').upsert(
+          { kind: 'double_subscription', member_id: user.id, message: `${profile.name} has ${live.length} live subscriptions in Stripe (${live.map((s) => s.id).join(', ')}). Cancel and refund the extra one.`, dedupe: `double-${live.map((s) => s.id).sort().join('-')}` },
+          { onConflict: 'dedupe', ignoreDuplicates: true },
+        );
+      }
+    }
 
     // Already paying: changes happen in the billing portal, which shows the proration and handles
     // card authentication. If they picked a different plan or term, go straight to confirming it.
-    if (profile.stripe_customer_id && profile.stripe_subscription_id && LIVE_STATUSES.includes(profile.subscription_status ?? '')) {
-      const sub = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+    if (liveSub && profile.stripe_customer_id) {
+      const sub = liveSub;
       const item = sub.items.data[0];
-      const changing = item && sub.items.data.length === 1 && item.price.id !== price.id && LIVE_STATUSES.includes(sub.status);
-      if (changing && !(await royalCheck())) return json({ error: ROYAL_FULL }, 409);
+      const changing = item && sub.items.data.length === 1 && item.price.id !== price.id;
+      if (changing && !(await holdRoyal())) return json({ error: ROYAL_FULL, waitlist: true }, 409);
       let configuration: string | undefined;
       if (changing) {
         const configs = await stripe.billingPortal.configurations.list({ active: true, limit: 20 });
         configuration = configs.data.find((c) => c.metadata?.purpose === UPGRADE_CONFIG)?.id;
       }
-      const portal = await stripe.billingPortal.sessions.create({
-        customer: profile.stripe_customer_id,
-        return_url: `${site}/#/you`,
-        ...(changing
-          ? {
-              ...(configuration ? { configuration } : {}),
-              flow_data: {
-                type: 'subscription_update_confirm' as const,
-                subscription_update_confirm: {
-                  subscription: sub.id,
-                  items: [{ id: item.id, price: price.id, quantity: 1 }],
+      try {
+        const portal = await stripe.billingPortal.sessions.create({
+          customer: profile.stripe_customer_id,
+          return_url: `${site}/#/you`,
+          ...(changing
+            ? {
+                ...(configuration ? { configuration } : {}),
+                flow_data: {
+                  type: 'subscription_update_confirm' as const,
+                  subscription_update_confirm: {
+                    subscription: sub.id,
+                    items: [{ id: item.id, price: price.id, quantity: 1 }],
+                  },
+                  after_completion: { type: 'redirect' as const, redirect: { return_url: `${site}/?changed=${plan}#/you` } },
                 },
-                after_completion: { type: 'redirect' as const, redirect: { return_url: `${site}/?changed=${plan}#/you` } },
-              },
-            }
-          : {}),
-      });
-      return json({ url: portal.url });
+              }
+            : {}),
+        });
+        return json({ url: portal.url });
+      } catch (err) {
+        if (changing) await releaseRoyal();
+        throw err;
+      }
     }
 
-    if (!(await royalCheck())) return json({ error: ROYAL_FULL }, 409);
+    if (!(await holdRoyal())) return json({ error: ROYAL_FULL, waitlist: true }, 409);
 
     let customerId = profile.stripe_customer_id as string | null;
     if (!customerId) {
@@ -138,6 +175,12 @@ Deno.serve(async (req) => {
       customerId = customer.id;
       const { error } = await admin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id);
       if (error) throw error;
+    }
+
+    // Close any other checkout this member still has open (another tab, or an earlier try), so only one can be paid.
+    const open = await stripe.checkout.sessions.list({ customer: customerId, status: 'open', limit: 10 });
+    for (const old of open.data) {
+      await stripe.checkout.sessions.expire(old.id).catch((err) => console.warn('Could not expire checkout', old.id, err?.message));
     }
 
     // A friend's referral code, if this is Ace and the code belongs to someone else who's still on Ace or Royal Flush.
@@ -169,19 +212,24 @@ Deno.serve(async (req) => {
         },
       },
       integration_identifier: INTEGRATION_ID,
-      // Royal Flush places are checked when checkout starts, so keep that window short.
-      ...(plan === 'royal' ? { expires_at: Math.floor(Date.now() / 1000) + 31 * 60 } : {}),
+      // A Royal Flush place is held while checkout is open, so keep that window short.
+      ...(plan === 'royal' ? { expires_at: Math.floor(Date.now() / 1000) + ROYAL_SESSION_MINUTES * 60 } : {}),
       success_url: `${site}/?checkout=success#/you`,
       cancel_url: `${site}/#/you`,
     };
     let session: Stripe.Checkout.Session;
     try {
-      session = await stripe.checkout.sessions.create(discounts ? { ...params, discounts } : { ...params, allow_promotion_codes: true });
+      try {
+        session = await stripe.checkout.sessions.create(discounts ? { ...params, discounts } : { ...params, allow_promotion_codes: true });
+      } catch (err) {
+        // Stripe can refuse a code (say, this customer has paid before): carry on without it.
+        if (!discounts || !(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
+        console.warn('Referral code not applied', refCode, err.message);
+        session = await stripe.checkout.sessions.create({ ...params, allow_promotion_codes: true });
+      }
     } catch (err) {
-      // Stripe can refuse a code (say, this customer has paid before): carry on without it.
-      if (!discounts || !(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
-      console.warn('Referral code not applied', refCode, err.message);
-      session = await stripe.checkout.sessions.create({ ...params, allow_promotion_codes: true });
+      await releaseRoyal();
+      throw err;
     }
     return json({ url: session.url });
   } catch (err) {

@@ -5,9 +5,19 @@
 // Every event is treated as a nudge: the handler fetches the subscription fresh from Stripe and
 // saves its current state, so events arriving late, twice or out of order can't leave a stale plan.
 //
+// The plan comes from the Stripe product (Full Deck, Ace, Royal Flush), not the price, so a price change
+// never moves anyone: members on an old price (founding members) keep their plan. If a live subscription's
+// plan can't be worked out, the member keeps the plan they have and Jack gets an alert.
+//
 // Disputes and early fraud warnings cancel the member's subscription straight away, so a disputed
 // card isn't charged again. A full refund does the same: under the Membership Terms a refund ends
-// the membership. Partial refunds are left alone (they can be goodwill).
+// the membership. A partial refund of the first payment of a plan the member has cancelled is the
+// 14-day cooling-off refund for an upfront plan, so that ends the plan straight away too. Other partial
+// refunds are left alone (they can be goodwill).
+//
+// Jack gets an alert (emailed by the hourly member-mail job) when: a member cancels within 14 days of
+// their first payment (a refund is owed), Royal Flush goes over five, a payment has no account behind it,
+// someone has two live subscriptions, or a paused referral code is used.
 //
 // Referrals (give £50, get £50): when a friend's Ace checkout used a member's referral code, the
 // referral is recorded and that member gets £50 of Stripe credit off their next payment. If the friend's
@@ -25,7 +35,14 @@
 import Stripe from 'npm:stripe@23.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
-const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace' | 'royal'> = {
+type Paid = 'deck' | 'ace' | 'royal';
+// Live Stripe products. The lookup keys below are the fallback (and what the sandbox uses).
+const TIER_BY_PRODUCT: Record<string, Paid> = {
+  prod_VVxH9hxTlhgeg3: 'deck',
+  prod_VVxHDFjhyNvLnQ: 'ace',
+  prod_VVxHxfwSxJRtEm: 'royal',
+};
+const TIER_BY_LOOKUP: Record<string, Paid> = {
   deck_monthly: 'deck',
   ace_monthly: 'ace',
   ace_quarterly: 'ace',
@@ -34,6 +51,9 @@ const TIER_BY_LOOKUP: Record<string, 'deck' | 'ace' | 'royal'> = {
   royal_halfyear: 'royal',
 };
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
+const RANK: Record<string, number> = { open: 0, deck: 1, ace: 2, royal: 3 };
+const PLAN_NAME: Record<string, string> = { open: 'Open Hand', deck: 'Full Deck', ace: 'Ace', royal: 'Royal Flush' };
+const DAY = 24 * 60 * 60;
 const REFERRAL_CREDIT = 5000; // £50, in pence
 const REFERRER_TIERS = ['ace', 'royal'];
 
@@ -47,12 +67,29 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
 
 const idOf = (x: string | { id: string } | null | undefined) => (typeof x === 'string' ? x : x?.id ?? null);
 
+/** The plan a subscription item pays for: by product, then by the price's lookup key. */
+function tierOfItem(item: Stripe.SubscriptionItem | undefined): Paid | null {
+  if (!item?.price) return null;
+  return TIER_BY_PRODUCT[idOf(item.price.product) ?? ''] ?? TIER_BY_LOOKUP[item.price.lookup_key ?? ''] ?? null;
+}
+
+/** Notes something for Jack. The hourly member-mail job emails new alerts to him. Never throws. */
+async function alertJack(kind: string, message: string, dedupe: string, memberId: string | null = null) {
+  const { error } = await admin
+    .from('jack_alerts')
+    .upsert({ kind, message, dedupe, member_id: memberId }, { onConflict: 'dedupe', ignoreDuplicates: true });
+  if (error) console.error('Could not save alert', kind, error);
+  console.warn('Alert for Jack:', message);
+}
+
+const pounds = (pence: number) => `£${(pence / 100).toFixed(2).replace(/\.00$/, '')}`;
+
 /** Saves a subscription's current state onto the member it belongs to. */
 async function syncSubscription(subId: string, userIdHint: string | null) {
   const sub = await stripe!.subscriptions.retrieve(subId);
   const customerId = idOf(sub.customer)!;
   const item = sub.items.data[0];
-  const planTier = TIER_BY_LOOKUP[item?.price?.lookup_key ?? ''];
+  const planTier = tierOfItem(item);
   const live = LIVE_STATUSES.includes(sub.status);
   // A cancellation can be stored either as cancel_at_period_end, or (billing portal, flexible billing
   // mode) as a cancel_at date with that flag false. Either way the member keeps the plan until then.
@@ -62,17 +99,18 @@ async function syncSubscription(subId: string, userIdHint: string | null) {
   const periodEnd = endsAt && itemEnd ? Math.min(endsAt, itemEnd) : endsAt ?? itemEnd;
 
   // Find the member by their Stripe customer (saved before checkout), else by the id we stamped on it.
-  let { data: profile } = await admin
-    .from('profiles')
-    .select('id, tier, stripe_subscription_id')
-    .eq('stripe_customer_id', customerId)
-    .maybeSingle();
+  const columns = 'id, name, tier, requested_tier, is_admin, stripe_subscription_id';
+  let { data: profile } = await admin.from('profiles').select(columns).eq('stripe_customer_id', customerId).maybeSingle();
   const userId = userIdHint || (sub.metadata?.user_id as string | undefined);
   if (!profile && userId) {
-    ({ data: profile } = await admin.from('profiles').select('id, tier, stripe_subscription_id').eq('id', userId).maybeSingle());
+    ({ data: profile } = await admin.from('profiles').select(columns).eq('id', userId).maybeSingle());
   }
   if (!profile) {
     console.warn('No member for subscription', sub.id, customerId);
+    // Usually a closed account. Stripe will keep charging a live subscription until someone stops it.
+    if (live && !sub.cancel_at_period_end && !sub.cancel_at) {
+      await alertJack('no_member', `Stripe subscription ${sub.id} (customer ${customerId}) is still live but has no account on the site. Cancel it in Stripe if the member has left.`, `no-member-${sub.id}`);
+    }
     return;
   }
 
@@ -82,28 +120,80 @@ async function syncSubscription(subId: string, userIdHint: string | null) {
     return;
   }
 
-  // Royal Flush is capped at 5. Checkout checks first, but two people paying at once could overfill it.
-  if (live && planTier === 'royal' && profile.tier !== 'royal') {
-    const { data: left } = await admin.rpc('royal_places_left');
-    if (typeof left === 'number' && left <= 0) console.warn('Royal Flush is over 5 places after', profile.id, 'joined');
+  // A live subscription whose plan can't be worked out (a hand-made price, say) keeps the member's plan.
+  let tier: string;
+  if (!live) tier = 'open';
+  else if (planTier) tier = planTier;
+  else {
+    tier = profile.tier;
+    await alertJack('unknown_plan', `${profile.name}'s subscription ${sub.id} uses price ${item?.price?.id ?? '?'}, which isn't on a Full Deck, Ace or Royal Flush product. They've kept ${PLAN_NAME[tier] ?? tier}; check the price in Stripe.`, `unknown-plan-${sub.id}-${item?.price?.id ?? ''}`, profile.id);
   }
+
+  // Royal Flush is capped at 5. Checkout holds a place, so this shouldn't happen; if it does, Jack decides.
+  if (tier === 'royal' && profile.tier !== 'royal') {
+    await admin.from('royal_holds').delete().eq('member_id', profile.id);
+    const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true }).eq('tier', 'royal').eq('is_admin', false);
+    if ((count ?? 0) >= 5) {
+      await alertJack('royal_over', `${profile.name} has just paid for Royal Flush, which makes ${(count ?? 0) + 1} Royal Flush members (the cap is 5). Decide whether to keep them or refund them in Stripe.`, `royal-over-${sub.id}`, profile.id);
+    }
+  }
+
+  // The plan they asked for at sign-up is met once they're on it (or higher).
+  const requestMet = profile.requested_tier && RANK[tier] >= (RANK[profile.requested_tier] ?? 0);
 
   const { error } = await admin
     .from('profiles')
     .update({
-      tier: live && planTier ? planTier : 'open',
+      tier,
       stripe_customer_id: customerId,
       stripe_subscription_id: sub.id,
       subscription_status: sub.status,
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       cancel_at_period_end: cancelling,
+      ...(requestMet && tier !== 'open' ? { requested_tier: null } : {}),
     })
     .eq('id', profile.id);
   if (error) throw error;
   console.log('Synced', profile.id, sub.status, planTier ?? 'no plan');
 
-  const tier = live && planTier ? planTier : 'open';
+  // Cancelled within 14 days of the first payment: under the Terms a refund is owed. Tell Jack.
+  if (live && cancelling && !profile.is_admin && Date.now() / 1000 - sub.start_date <= 14 * DAY && tier !== 'open') {
+    const price = item?.price;
+    const termDays = itemEnd ? Math.round((itemEnd - sub.start_date) / DAY) : null;
+    const daysUsed = Math.max(1, Math.ceil((Date.now() / 1000 - sub.start_date) / DAY));
+    const monthly = price?.recurring?.interval === 'month' && (price.recurring.interval_count ?? 1) === 1;
+    const full = price?.unit_amount ?? 0;
+    const owed = monthly || !termDays ? full : Math.round(full * Math.max(0, termDays - daysUsed) / termDays);
+    await alertJack(
+      'refund_owed',
+      `${profile.name} cancelled ${PLAN_NAME[tier]} on day ${daysUsed}, inside the 14 days. Under the Terms they're owed ${monthly ? `a full refund of their first payment (${pounds(full)})` : `their first payment minus ${daysUsed} of ${termDays} days: about ${pounds(owed)} of ${pounds(full)}`}. Check what they actually paid (a code may have taken money off), then refund it in Stripe within 14 days. Refunding it ends their plan straight away.`,
+      `refund-owed-${sub.id}`,
+      profile.id,
+    );
+  }
+
   if (!REFERRER_TIERS.includes(tier)) await quietly('pausing referral code', () => pauseReferralCode(profile.id));
+}
+
+/**
+ * A partial refund of a plan's first payment, after the member cancelled: the 14-day cooling-off refund
+ * for an upfront plan (paid minus days used). End the plan now rather than at the end of the term.
+ */
+async function endCooledOffPlan(charge: Stripe.Charge) {
+  const customerId = idOf(charge.customer);
+  if (!customerId) return;
+  const subs = await stripe!.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+  for (const sub of subs.data) {
+    if (!LIVE_STATUSES.includes(sub.status)) continue;
+    const cancelled = !!sub.cancel_at_period_end || !!sub.cancel_at;
+    const firstPayment = Math.abs(charge.created - sub.start_date) < 60 * 60;
+    if (!cancelled || !firstPayment) continue;
+    await quietly('reversing a referral credit', () => reverseReferralCredit(charge, 'refunded'));
+    await stripe!.subscriptions.cancel(sub.id, {}, { idempotencyKey: `cooling-off-${sub.id}-${charge.id}` });
+    console.log('Cooling-off refund → ended', sub.id, 'for', customerId);
+    return true;
+  }
+  return false;
 }
 
 /** Runs a referral step, logging failures instead of throwing: plan syncing must never wait on referrals. */
@@ -135,7 +225,16 @@ async function recordReferral(sessionId: string) {
   if (promoIds.length === 0) return;
 
   const { data: codeRow } = await admin.from('referral_codes').select('member_id, code').in('promo_id', promoIds).limit(1).maybeSingle();
-  if (!codeRow) return; // some other promotion code
+  if (!codeRow) {
+    // A referral code whose owner has closed their account still works in Stripe until it's switched off.
+    for (const promoId of promoIds) {
+      const promo = await stripe!.promotionCodes.retrieve(promoId);
+      if (promo?.metadata?.kind !== 'ace_referral') continue;
+      if (promo.active) await stripe!.promotionCodes.update(promoId, { active: false });
+      await alertJack('orphan_referral', `Referral code ${promo.code} was used by a new Ace member, but its owner has left. It's now switched off; no credit was given.`, `orphan-referral-${promoId}-${session.id}`);
+    }
+    return;
+  }
   const friendId = session.client_reference_id;
   if (!friendId || friendId === codeRow.member_id) return;
 
@@ -262,7 +361,17 @@ Deno.serve(async (req) => {
         const session = event.data.object;
         const subId = idOf(session.subscription);
         // The subscription's own status decides access, so a payment still processing grants nothing yet.
-        if (session.mode === 'subscription' && subId) await syncSubscription(subId, session.client_reference_id);
+        if (session.mode === 'subscription' && subId) {
+          await syncSubscription(subId, session.client_reference_id);
+          const customerId = idOf(session.customer);
+          if (customerId) {
+            const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 });
+            const live = subs.data.filter((s) => LIVE_STATUSES.includes(s.status));
+            if (live.length > 1) {
+              await alertJack('double_subscription', `Customer ${customerId} now has ${live.length} live subscriptions (${live.map((s) => s.id).join(', ')}): they're being charged twice. Cancel and refund the extra one in Stripe.`, `double-${live.map((s) => s.id).sort().join('-')}`);
+            }
+          }
+        }
         if (event.type !== 'checkout.session.async_payment_failed') await quietly('recording a referral', () => recordReferral(session.id));
         break;
       }
@@ -287,7 +396,7 @@ Deno.serve(async (req) => {
       case 'charge.refunded': {
         const charge = event.data.object;
         if (charge.refunded) await cancelSubscriptionsFor(charge.id, 'Full refund');
-        else console.log('Partial refund, membership unchanged', charge.id);
+        else if (!(await endCooledOffPlan(charge))) console.log('Partial refund, membership unchanged', charge.id);
         break;
       }
       case 'charge.dispute.created': {

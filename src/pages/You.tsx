@@ -150,7 +150,8 @@ function Members() {
     }
   };
 
-  const waiting = (rows ?? []).filter((r) => r.requested_tier && r.requested_tier !== 'open' && r.requested_tier !== r.tier).length;
+  // Only people who asked for a plan above the one they're on (the Royal Flush waitlist included).
+  const waiting = (rows ?? []).filter((r) => r.requested_tier && TIER_RANK[r.requested_tier as Tier] > TIER_RANK[r.tier as Tier]).length;
 
   return (
     <section className="stack-10" aria-labelledby="members-title">

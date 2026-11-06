@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import { ROYAL_PLACES, SUITS, TIERS, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
+import { ROYAL_PLACES, SUITS, TIERS, TIER_RANK, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
 import { TermPicker } from '../components/TermPicker';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
@@ -60,17 +60,33 @@ export function Landing() {
   }, [actions]);
   const royalFull = royalLeft === 0;
 
-  // After signing up for a paid plan, go to checkout; otherwise straight into the app
-  // once the profile loads (also when arriving from an email link).
+  // After signing up for a paid plan, go to checkout; otherwise straight into the app once the profile
+  // loads. Arriving from the confirmation email after choosing a paid plan also goes to checkout, with
+  // the term they picked. If checkout can't start (say Royal Flush is full, so they're on the waitlist),
+  // they land in the app.
   useEffect(() => {
     if (!member) return;
+    const checkout = (plan: 'deck' | 'ace' | 'royal', term: Term | null) => {
+      void actions.startCheckout(plan, term ?? undefined).then((err) => { if (err) navigate('/app'); });
+    };
     if (PAYMENTS_LIVE && pendingPlan && pendingPlan.tier !== 'open') {
       const { tier: plan, term } = pendingPlan;
       setPendingPlan(null);
-      void actions.startCheckout(plan, term ?? undefined);
+      checkout(plan, term);
       return;
     }
-    if (openWhenReady || consumeEmailArrival()) navigate('/app');
+    if (openWhenReady) {
+      navigate('/app');
+      return;
+    }
+    if (consumeEmailArrival()) {
+      const wanted = member.requestedTier;
+      if (PAYMENTS_LIVE && wanted && wanted !== 'open' && !member.isAdmin && !isPaying(member) && TIER_RANK[wanted] > TIER_RANK[member.tier]) {
+        checkout(wanted, member.requestedTerm);
+        return;
+      }
+      navigate('/app');
+    }
   }, [member, openWhenReady, pendingPlan, navigate, actions]);
 
   const signIn = () => {
@@ -78,17 +94,19 @@ export function Landing() {
     else setAuth({ mode: 'signin', tier: 'deck' });
   };
 
-  // Joining from any button: new visitors sign up; existing members just ask for that plan.
+  // Joining from any button: new visitors sign up. Members go to checkout, or if they already pay, to
+  // Stripe's confirm screen for the change. (If Royal Flush is full, checkout puts them on the waitlist.)
   const join = async (tier: Tier) => {
     if (!member) {
       setAuth({ mode: 'signup', tier, term: terms[tier] });
       return;
     }
-    if (PAYMENTS_LIVE && tier !== 'open' && tier !== member.tier && !isPaying(member)) {
-      await actions.startCheckout(tier, terms[tier]);
+    if (PAYMENTS_LIVE && tier !== 'open' && tier !== member.tier) {
+      const err = await actions.startCheckout(tier, terms[tier]);
+      if (err) navigate('/app');
       return;
     }
-    if (tier !== 'open' && tier !== member.tier) {
+    if (!PAYMENTS_LIVE && tier !== 'open' && tier !== member.tier) {
       const err = await actions.requestTier(tier);
       if (!err) actions.notify('ok', `Noted. You're on the list for ${tierById(tier).name}.`);
     }
@@ -275,7 +293,7 @@ export function Landing() {
 
       <SiteFooter />
 
-      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} term={auth.term} onClose={() => setAuth(null)} onSignedIn={(plan, term) => { setPendingPlan(plan ? { tier: plan, term } : null); setOpenWhenReady(true); }} />}
+      {auth && <AuthSheet mode={auth.mode} tier={auth.tier} term={auth.term} royalFull={royalFull} onClose={() => setAuth(null)} onSignedIn={(plan, term) => { setPendingPlan(plan ? { tier: plan, term } : null); setOpenWhenReady(true); }} />}
     </div>
   );
 }

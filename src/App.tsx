@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { StoreProvider, isPaying, useStore } from './store';
-import { tierById } from './content';
+import { planInSentence, tierById } from './content';
 import { RouterProvider, useRouter } from './router';
 import { AppShell, Splash, Toast } from './components/AppShell';
 import { AuthSheet } from './components/AuthSheet';
@@ -63,20 +63,26 @@ function Screens() {
     if (!joined && !target) return;
     try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* ignore */ }
     actions.notify('ok', joined ? 'Payment received. Setting up your plan…' : 'Updating your plan…');
+    // Join buttons wait meanwhile, so nobody starts a second payment while the first is being set up.
+    actions.setSettling(true);
     let tries = 0;
     let stopped = false;
     const check = async () => {
       if (stopped) return;
       const m = await actions.refreshProfile();
       if (m && isPaying(m) && (!target || m.tier === target)) {
-        actions.notify('ok', joined ? `Welcome to the ${tierById(m.tier).name}.` : `Plan updated: ${tierById(m.tier).name}.`);
+        actions.setSettling(false);
+        actions.notify('ok', joined ? `Welcome to ${planInSentence(m.tier)}.` : `Plan updated: ${tierById(m.tier).name}.`);
         return;
       }
       if (++tries < 15) window.setTimeout(check, 2000);
-      else actions.notify('error', 'Your payment went through but your plan is taking a while. Refresh in a minute, or message Jack.');
+      else {
+        actions.setSettling(false);
+        actions.notify('error', 'Your payment went through but your plan is taking a while. Refresh in a minute, or message Jack.');
+      }
     };
     void check();
-    return () => { stopped = true; };
+    return () => { stopped = true; actions.setSettling(false); };
   }, [signedIn, actions]);
 
   let content;

@@ -144,6 +144,7 @@ export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
   for (const s of sent ?? []) welcomedUpTo.set(s.member_id, Math.max(welcomedUpTo.get(s.member_id) ?? 0, RANK[s.tier] ?? 0));
   const friday = nextFridayTable();
   const results: { member: string; tier: string; sent: boolean }[] = [];
+  let failures = 0;
 
   for (const m of members ?? []) {
     if (!(RANK[m.tier] > (welcomedUpTo.get(m.id) ?? 0))) continue;
@@ -153,25 +154,32 @@ export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
       continue;
     }
     const { subject, html } = welcomeEmail(m.tier as Paid, m.name, friday);
-    if (results.length > 0) await sleep(600);
+    if (results.length + failures > 0) await sleep(600);
     // The idempotency key stops a double send if the instant call and the hourly check overlap.
-    await resend('/emails', {
-      method: 'POST',
-      idempotencyKey: `welcome-${m.id}-${m.tier}`,
-      body: JSON.stringify({
-        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
-        to: [user.user.email],
-        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
-        subject,
-        html,
-      }),
-    });
+    try {
+      await resend('/emails', {
+        method: 'POST',
+        idempotencyKey: `welcome-${m.id}-${m.tier}`,
+        body: JSON.stringify({
+          from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+          to: [user.user.email],
+          reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+          subject,
+          html,
+        }),
+      });
+    } catch (err) {
+      // One refused address mustn't stop the others; it's tried again next hour.
+      failures++;
+      console.error('Welcome failed', m.id, m.tier, err);
+      continue;
+    }
     const { error: insertError } = await admin.from('welcome_sent').upsert({ member_id: m.id, tier: m.tier }, { onConflict: 'member_id,tier', ignoreDuplicates: true });
     if (insertError) console.error('Could not record welcome', m.id, m.tier, insertError);
     console.log('Welcome sent', m.id, m.tier);
     results.push({ member: m.id, tier: m.tier, sent: true });
   }
-  return { welcomes: results.length };
+  return { welcomes: results.length, welcomeFailures: failures };
 }
 
 /** Free welcomes only go to accounts made from this date (older accounts are Jack's tests). */
@@ -193,6 +201,7 @@ export async function sendOpenWelcomes(admin: SupabaseClient) {
   const welcomed = new Set((sent ?? []).map((s) => s.member_id));
   const friday = nextFridayTable();
   let count = 0;
+  let failures = 0;
 
   for (const m of members ?? []) {
     if (welcomed.has(m.id)) continue;
@@ -203,24 +212,30 @@ export async function sendOpenWelcomes(admin: SupabaseClient) {
     if (Date.now() - confirmedAt < (wantedPaid ? 24 * HOUR : HOUR)) continue;
 
     const { subject, html } = welcomeEmail('open', m.name, friday);
-    if (count > 0) await sleep(600);
-    await resend('/emails', {
-      method: 'POST',
-      idempotencyKey: `welcome-${m.id}-open`,
-      body: JSON.stringify({
-        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
-        to: [user.user.email],
-        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
-        subject,
-        html,
-      }),
-    });
+    if (count + failures > 0) await sleep(600);
+    try {
+      await resend('/emails', {
+        method: 'POST',
+        idempotencyKey: `welcome-${m.id}-open`,
+        body: JSON.stringify({
+          from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+          to: [user.user.email],
+          reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+          subject,
+          html,
+        }),
+      });
+    } catch (err) {
+      failures++;
+      console.error('Welcome failed', m.id, 'open', err);
+      continue;
+    }
     const { error: insertError } = await admin.from('welcome_sent').upsert({ member_id: m.id, tier: 'open' }, { onConflict: 'member_id,tier', ignoreDuplicates: true });
     if (insertError) console.error('Could not record welcome', m.id, 'open', insertError);
     console.log('Welcome sent', m.id, 'open');
     count++;
   }
-  return { openWelcomes: count };
+  return { openWelcomes: count, openWelcomeFailures: failures };
 }
 
 /** Jack's test copies: all four welcomes to one address, marked [Test]. Records nothing. */

@@ -286,6 +286,9 @@ export function priceOption(tier: Tier, term?: Term | null): PriceOption | undef
 }
 export const defaultTerm = (tier: Tier): Term => tierById(tier).options[0]?.term ?? 'month';
 
+/** A plan's name as it reads mid-sentence: "the Full Deck", but "Ace", "Royal Flush", "Open Hand". */
+export const planInSentence = (tier: Tier): string => (tier === 'deck' ? 'the Full Deck' : tierById(tier).name);
+
 /** Royal Flush is capped. The database (royal_places_left) is the source of truth; this is for copy. */
 export const ROYAL_PLACES = 5;
 
