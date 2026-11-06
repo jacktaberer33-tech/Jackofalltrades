@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LESSONS, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
+import { LESSONS, ROYAL_PLACES, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
 import { effectiveTier, isPaying, useStore, type AdminReferralRow, type Referral } from '../store';
@@ -143,6 +143,18 @@ function Members() {
   const nameOf = (id: string | null) => (id && rows?.find((r) => r.id === id)?.name) || 'A closed account';
 
   const change = async (id: string, tier: Tier) => {
+    // One tap on a phone shouldn't email someone a welcome or overfill Royal Flush, so ask first.
+    const row = (rows ?? []).find((r) => r.id === id);
+    if (!row) return;
+    const up = TIER_RANK[tier] > TIER_RANK[row.tier as Tier];
+    const royalCount = (rows ?? []).filter((r) => r.tier === 'royal' && r.id !== id).length;
+    const lines = [
+      `Move ${row.name} to ${tierById(tier).name}?`,
+      up && tier !== 'open' ? `They'll get the ${tierById(tier).name} welcome email straight away.` : '',
+      tier === 'royal' && royalCount >= ROYAL_PLACES ? `Royal Flush already has ${royalCount} members (the cap is ${ROYAL_PLACES}).` : '',
+      "This doesn't touch Stripe.",
+    ].filter(Boolean);
+    if (!window.confirm(lines.join('\n\n'))) return;
     const err = await actions.setMemberTier(id, tier);
     if (!err) {
       setRows((list) => (list ?? []).map((r) => (r.id === id ? { ...r, tier } : r)));
@@ -150,7 +162,8 @@ function Members() {
     }
   };
 
-  const waiting = (rows ?? []).filter((r) => r.requested_tier && r.requested_tier !== 'open' && r.requested_tier !== r.tier).length;
+  // Only people who asked for a plan above the one they're on (the Royal Flush waitlist included).
+  const waiting = (rows ?? []).filter((r) => r.requested_tier && TIER_RANK[r.requested_tier as Tier] > TIER_RANK[r.tier as Tier]).length;
 
   return (
     <section className="stack-10" aria-labelledby="members-title">
@@ -183,7 +196,7 @@ function Members() {
           </table>
         </div>
       )}
-      <p className="small muted">Changing a plan here doesn't touch Stripe. Use it for free places and fixes; paid plans update themselves.</p>
+      <p className="small muted">Changing a plan here doesn't touch Stripe, and moving someone up sends that plan's welcome email. Use it for free places and fixes; paid plans update themselves.</p>
       {rows && referrals.length > 0 && (
         <div className="card stack-10">
           <p className="strong">Referrals</p>

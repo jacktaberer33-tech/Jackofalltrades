@@ -6,7 +6,7 @@
 // public.welcome_sent records what's gone out. Nobody gets the same welcome twice, nobody is welcomed to a
 // lower plan after a downgrade, and admin accounts never get one.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { resend, sleep } from './resend.ts';
+import { allRows, resend, sleep } from './resend.ts';
 
 type Paid = 'deck' | 'ace' | 'royal';
 type Plan = 'open' | Paid;
@@ -82,7 +82,7 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <p>You're in. Welcome to the Full Deck.</p>
         <p>Three things for this week:</p>
         <ol style="padding-left:20px">
-          <li style="margin-bottom:8px"><strong>Pick a suit and start at its Ace.</strong> The first five cards of every suit are yours, Ace to 5. Start with the suit that makes you squirm a bit.</li>
+          <li style="margin-bottom:8px"><strong>Pick a suit and start at its Ace.</strong> The first five cards of every suit are yours, Ace to 5, as each one is dealt. Start with the suit that makes you squirm a bit.</li>
           <li style="margin-bottom:8px"><strong>Answer one Mirror question.</strong> Every lesson ends with one. It's private unless you choose to share it.</li>
           <li><strong>Say hello at the Table.</strong> Reply under the pinned post with your name, your suit and one honest sentence about why you joined.</li>
         </ol>
@@ -96,7 +96,7 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
     return {
       subject: "You've gone Ace",
       html: layout(`${hi}
-        <p>Welcome to Ace. You've got the whole deck now, every card from Ace to King in all four suits, and me in your corner once a month.</p>
+        <p>Welcome to Ace. Every card up to King, in all four suits, is yours as it's dealt, and you've got me in your corner once a month.</p>
         <p><strong>First, book your 1:1.</strong> Open Your 1:1 in the app and pick a time this month. It's 45 minutes on video, and I'll send the link the day before. Bring the thing you can't say anywhere else.</p>
         ${button(`${SITE}/#/ace`, 'Book your 1:1')}
         <p><strong>Your accountability group:</strong> 30 minutes on Google Meet every other week, with up to five other Ace members. Groups start small and fill up to six, and you keep the same group. I'll email you who's in yours and the first call time. If a friend's code brought you here, you'll go in their group if there's room.</p>
@@ -130,20 +130,25 @@ const RANK: Record<string, number> = { open: 0, deck: 1, ace: 2, royal: 3 };
  * memberId, to every paying member still owed one (the hourly safety net).
  */
 export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
-  let query = admin.from('profiles').select('id, name, tier, is_admin').in('tier', ['deck', 'ace', 'royal']).eq('is_admin', false);
-  if (memberId) query = query.eq('id', memberId);
-  const [{ data: members, error }, { data: sent, error: sentError }] = await Promise.all([
-    query,
-    admin.from('welcome_sent').select('member_id, tier'),
+  const memberPage = (from: number, to: number) => {
+    let query = admin.from('profiles').select('id, name, tier, is_admin').in('tier', ['deck', 'ace', 'royal']).eq('is_admin', false);
+    if (memberId) query = query.eq('id', memberId);
+    return query.order('id').range(from, to);
+  };
+  const [members, sent] = await Promise.all([
+    allRows<{ id: string; name: string; tier: string; is_admin: boolean }>(memberPage),
+    allRows<{ member_id: string; tier: string }>((from, to) => {
+      const q = admin.from('welcome_sent').select('member_id, tier');
+      return (memberId ? q.eq('member_id', memberId) : q).order('member_id').order('tier').range(from, to);
+    }),
   ]);
-  if (error) throw error;
-  if (sentError) throw sentError;
   // The highest plan each member has already been welcomed to. A welcome only goes out for a plan above
   // that, so someone who drops from Ace to the Full Deck isn't welcomed to the Full Deck afterwards.
   const welcomedUpTo = new Map<string, number>();
   for (const s of sent ?? []) welcomedUpTo.set(s.member_id, Math.max(welcomedUpTo.get(s.member_id) ?? 0, RANK[s.tier] ?? 0));
   const friday = nextFridayTable();
   const results: { member: string; tier: string; sent: boolean }[] = [];
+  let failures = 0;
 
   for (const m of members ?? []) {
     if (!(RANK[m.tier] > (welcomedUpTo.get(m.id) ?? 0))) continue;
@@ -153,25 +158,32 @@ export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
       continue;
     }
     const { subject, html } = welcomeEmail(m.tier as Paid, m.name, friday);
-    if (results.length > 0) await sleep(600);
+    if (results.length + failures > 0) await sleep(600);
     // The idempotency key stops a double send if the instant call and the hourly check overlap.
-    await resend('/emails', {
-      method: 'POST',
-      idempotencyKey: `welcome-${m.id}-${m.tier}`,
-      body: JSON.stringify({
-        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
-        to: [user.user.email],
-        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
-        subject,
-        html,
-      }),
-    });
+    try {
+      await resend('/emails', {
+        method: 'POST',
+        idempotencyKey: `welcome-${m.id}-${m.tier}`,
+        body: JSON.stringify({
+          from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+          to: [user.user.email],
+          reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+          subject,
+          html,
+        }),
+      });
+    } catch (err) {
+      // One refused address mustn't stop the others; it's tried again next hour.
+      failures++;
+      console.error('Welcome failed', m.id, m.tier, err);
+      continue;
+    }
     const { error: insertError } = await admin.from('welcome_sent').upsert({ member_id: m.id, tier: m.tier }, { onConflict: 'member_id,tier', ignoreDuplicates: true });
     if (insertError) console.error('Could not record welcome', m.id, m.tier, insertError);
     console.log('Welcome sent', m.id, m.tier);
     results.push({ member: m.id, tier: m.tier, sent: true });
   }
-  return { welcomes: results.length };
+  return { welcomes: results.length, welcomeFailures: failures };
 }
 
 /** Free welcomes only go to accounts made from this date (older accounts are Jack's tests). */
@@ -184,15 +196,15 @@ const HOUR = 60 * 60 * 1000;
  * that plan's welcome instead).
  */
 export async function sendOpenWelcomes(admin: SupabaseClient) {
-  const [{ data: members, error }, { data: sent, error: sentError }] = await Promise.all([
-    admin.from('profiles').select('id, name, requested_tier, created_at').eq('tier', 'open').eq('is_admin', false).gte('created_at', OPEN_WELCOME_FROM),
-    admin.from('welcome_sent').select('member_id'),
+  const [members, sent] = await Promise.all([
+    allRows<{ id: string; name: string; requested_tier: string | null; created_at: string }>((from, to) =>
+      admin.from('profiles').select('id, name, requested_tier, created_at').eq('tier', 'open').eq('is_admin', false).gte('created_at', OPEN_WELCOME_FROM).order('id').range(from, to)),
+    allRows<{ member_id: string }>((from, to) => admin.from('welcome_sent').select('member_id').order('member_id').order('tier').range(from, to)),
   ]);
-  if (error) throw error;
-  if (sentError) throw sentError;
   const welcomed = new Set((sent ?? []).map((s) => s.member_id));
   const friday = nextFridayTable();
   let count = 0;
+  let failures = 0;
 
   for (const m of members ?? []) {
     if (welcomed.has(m.id)) continue;
@@ -203,24 +215,30 @@ export async function sendOpenWelcomes(admin: SupabaseClient) {
     if (Date.now() - confirmedAt < (wantedPaid ? 24 * HOUR : HOUR)) continue;
 
     const { subject, html } = welcomeEmail('open', m.name, friday);
-    if (count > 0) await sleep(600);
-    await resend('/emails', {
-      method: 'POST',
-      idempotencyKey: `welcome-${m.id}-open`,
-      body: JSON.stringify({
-        from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
-        to: [user.user.email],
-        reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
-        subject,
-        html,
-      }),
-    });
+    if (count + failures > 0) await sleep(600);
+    try {
+      await resend('/emails', {
+        method: 'POST',
+        idempotencyKey: `welcome-${m.id}-open`,
+        body: JSON.stringify({
+          from: Deno.env.get('WELCOME_FROM') ?? 'Jack <hello@jackofalltrades.life>',
+          to: [user.user.email],
+          reply_to: Deno.env.get('REPLY_TO') ?? 'jackofalltrades.life@gmail.com',
+          subject,
+          html,
+        }),
+      });
+    } catch (err) {
+      failures++;
+      console.error('Welcome failed', m.id, 'open', err);
+      continue;
+    }
     const { error: insertError } = await admin.from('welcome_sent').upsert({ member_id: m.id, tier: 'open' }, { onConflict: 'member_id,tier', ignoreDuplicates: true });
     if (insertError) console.error('Could not record welcome', m.id, 'open', insertError);
     console.log('Welcome sent', m.id, 'open');
     count++;
   }
-  return { openWelcomes: count };
+  return { openWelcomes: count, openWelcomeFailures: failures };
 }
 
 /** Jack's test copies: all four welcomes to one address, marked [Test]. Records nothing. */

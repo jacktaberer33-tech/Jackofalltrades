@@ -21,6 +21,8 @@ export interface Member {
   name: string;
   tier: Tier;
   requestedTier: Tier | null;
+  /** The payment term they chose at sign-up (kept on the account), so checkout can pick up where they left off. */
+  requestedTerm: Term | null;
   isAdmin: boolean;
   joinedAt: number;
   /** Stripe subscription, when they pay for a plan. */
@@ -90,9 +92,11 @@ export interface State {
   rsvps: string[];
   posts: Post[] | null;
   notice: Notice | null;
+  /** True while a payment that just went through is still being set up, so Join buttons wait. */
+  settling: boolean;
 }
 
-const EMPTY: Omit<State, 'status' | 'recovering' | 'notice'> = {
+const EMPTY: Omit<State, 'status' | 'recovering' | 'notice' | 'settling'> = {
   member: null,
   completed: [],
   saved: [],
@@ -113,12 +117,16 @@ export function canPost(member: Member | null): boolean {
   return !!member && (member.isAdmin || member.tier !== 'open');
 }
 
-const toMember = (p: ProfileRow, email: string): Member => ({
+const TERMS: Term[] = ['month', 'quarter', 'half'];
+const termOf = (v: unknown): Term | null => (TERMS.includes(v as Term) ? (v as Term) : null);
+
+const toMember = (p: ProfileRow, email: string, meta?: Record<string, unknown>): Member => ({
   id: p.id,
   email,
   name: p.name,
   tier: p.tier,
   requestedTier: p.requested_tier,
+  requestedTerm: termOf(meta?.requested_term),
   isAdmin: p.is_admin,
   joinedAt: Date.parse(p.created_at),
   billing: {
@@ -203,11 +211,13 @@ const toBooking = (r: BookingRow): Booking => ({
 });
 
 const POST_SELECT = '*, post_replies(count), post_me_too(count)';
+/** The longest post or reply the Table takes (the database checks it too). */
+export const TABLE_LIMIT = 2000;
 
 type Err = string | null;
 
 function useStoreValue() {
-  const [state, setState] = useState<State>({ ...EMPTY, status: 'loading', recovering: false, notice: null });
+  const [state, setState] = useState<State>({ ...EMPTY, status: 'loading', recovering: false, notice: null, settling: false });
   const userId = useRef<string | null>(null);
   // Always the latest state, for actions that need to know the current value before changing it.
   const stateRef = useRef(state);
@@ -261,7 +271,7 @@ function useStoreValue() {
     setState((s) => ({
       ...s,
       status: 'signedIn',
-      member: toMember(profile.data as ProfileRow, session.user.email ?? ''),
+      member: toMember(profile.data as ProfileRow, session.user.email ?? '', session.user.user_metadata),
       completed: ((progress.data ?? []) as { lesson_id: string }[]).map((r) => r.lesson_id),
       saved: ((saved.data ?? []) as { lesson_id: string }[]).map((r) => r.lesson_id),
       mirror: mirrorMap,
@@ -296,13 +306,19 @@ function useStoreValue() {
     notify,
 
     // ---------- Account ----------
-    async signUp(name: string, email: string, password: string, tier: Tier): Promise<{ error: Err; needsConfirm: boolean }> {
+    async signUp(name: string, email: string, password: string, tier: Tier, term?: Term): Promise<{ error: Err; needsConfirm: boolean }> {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        // A friend's referral code rides along on the account, so it still applies after the confirmation email.
+        // The plan and term they chose, and a friend's referral code, ride along on the account, so they
+        // still apply after the confirmation email.
         options: {
-          data: { name: name.trim(), requested_tier: tier, ...(pendingRef() ? { ref: pendingRef() } : {}) },
+          data: {
+            name: name.trim(),
+            requested_tier: tier,
+            ...(tier !== 'open' && term ? { requested_term: term } : {}),
+            ...(pendingRef() ? { ref: pendingRef() } : {}),
+          },
           emailRedirectTo: `${window.location.origin}/`,
         },
       });
@@ -336,8 +352,13 @@ function useStoreValue() {
       await supabase.auth.signOut();
     },
     async deleteAccount(): Promise<Err> {
-      const { error } = await supabase.rpc('delete_my_account');
-      if (error) return fail(error);
+      // The function checks Stripe for a plan that still renews and switches off any referral code first.
+      const { error } = await supabase.functions.invoke('close-account', { body: {} });
+      if (error) {
+        const text = await functionError(error);
+        notify('error', text);
+        return text;
+      }
       await supabase.auth.signOut();
       return null;
     },
@@ -358,7 +379,7 @@ function useStoreValue() {
       const { data: auth } = await supabase.auth.getUser();
       const { data, error } = await supabase.from('profiles').select('*').eq('id', uid()).single();
       if (error || !data) return null;
-      const member = toMember(data as ProfileRow, auth.user?.email ?? stateRef.current.member?.email ?? '');
+      const member = toMember(data as ProfileRow, auth.user?.email ?? stateRef.current.member?.email ?? '', auth.user?.user_metadata);
       setState((s) => ({ ...s, member }));
       return member;
     },
@@ -372,15 +393,28 @@ function useStoreValue() {
      * on a confirm screen for the plan and term they picked.
      */
     async startCheckout(plan: 'deck' | 'ace' | 'royal', term?: Term): Promise<Err> {
+      if (stateRef.current.settling) {
+        const text = 'Your last payment is still being set up. Give it a few seconds.';
+        notify('ok', text);
+        return text;
+      }
       const ref = plan === 'ace' ? pendingRef() : null;
       const { data, error } = await supabase.functions.invoke('create-checkout', { body: { plan, term, ...(ref ? { ref } : {}) } });
       if (error || !data?.url) {
         const text = error ? await functionError(error) : 'Checkout did not start. Try again.';
-        notify('error', text);
+        // Royal Flush full: the server has put them on the waitlist.
+        if (plan === 'royal' && /waitlist/i.test(text)) {
+          setState((s) => (s.member ? { ...s, member: { ...s.member, requestedTier: 'royal' } } : s));
+          notify('ok', text);
+        } else notify('error', text);
         return text;
       }
       window.location.assign(data.url as string);
       return null;
+    },
+    /** Set while the app waits for a payment that just went through to show up on the account. */
+    setSettling(on: boolean) {
+      setState((s) => (s.settling === on ? s : { ...s, settling: on }));
     },
     async openBilling(): Promise<Err> {
       const { data, error } = await supabase.functions.invoke('billing-portal', { body: {} });
@@ -449,9 +483,15 @@ function useStoreValue() {
       return null;
     },
     async shareMirror(lessonId: string, suit: SuitId, text: string): Promise<Err> {
-      const err = await actions.saveMirror(lessonId, text, true);
+      if ([...text.trim()].length > TABLE_LIMIT) {
+        const msg = `The Table takes up to ${TABLE_LIMIT.toLocaleString('en-GB')} characters. Shorten it to share, or save it privately.`;
+        notify('error', msg);
+        return msg;
+      }
+      // Post first, and only mark the answer shared once it's really on the Table.
+      const err = await actions.addPost(text, suit, false, lessonId);
       if (err) return err;
-      return actions.addPost(text, suit, false, lessonId);
+      return actions.saveMirror(lessonId, text, true);
     },
 
     // ---------- The Table ----------

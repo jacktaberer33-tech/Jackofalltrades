@@ -7,17 +7,22 @@
 //                        this sync never re-subscribes anyone.
 //   { "job": "welcome", "member_id"? }  a member's plan just went up (database trigger): send that plan's
 //                        welcome email. The hourly sync also catches any welcome that didn't go out, and
-//                        sends the Open Hand welcome to new free members.
+//                        sends the Open Hand welcome to new free members. It then emails Jack any new alerts
+//                        from the payment functions (public.jack_alerts). Each step runs on its own, and one
+//                        contact or email Resend refuses is skipped and noted, so a single bad address can't
+//                        hold up everyone else's welcome.
 //   { "job": "welcome-test", "to" }  Jack's test copies of every welcome email, marked [Test].
 //   { "job": "digest" }  every evening. Emails Jack a round-up of the day's new Table posts and replies
-//                        (not his own), only on days with activity. Ace and Royal Flush posts are flagged,
-//                        since those members get first replies from Jack.
+//                        (not his own), only on days with activity: who posted, in which suit, with a link.
+//                        It leaves out what they wrote, so members' words stay on the Table and aren't
+//                        copied into Jack's inbox. Ace and Royal Flush posts are flagged, since those
+//                        members get first replies from Jack.
 //
 // Secrets: RESEND_API_KEY (full access, from the Resend team that owns jackofalltrades.life). The cron
 // secret lives in the database vault (see resend.ts). Optional: ALERT_EMAIL (where the round-up goes,
 // default jackofalltrades.life@gmail.com), MAIL_FROM (default "Jack of All Trades <hello@jackofalltrades.life>").
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { fromCron, json, resend, sleep } from './resend.ts';
+import { allRows, fromCron, json, resend, sleep } from './resend.ts';
 import { sendOpenWelcomes, sendTestWelcomes, sendWelcomes } from './welcome.ts';
 
 const SEGMENT_NAME = 'Members';
@@ -46,9 +51,8 @@ async function membersSegmentId(): Promise<string> {
 /** Everyone with a confirmed email, with the first name on their profile. */
 async function confirmedMembers(): Promise<Map<string, string>> {
   const names = new Map<string, string>();
-  const { data: profiles, error } = await admin.from('profiles').select('id, name');
-  if (error) throw error;
-  for (const p of profiles ?? []) names.set(p.id, p.name);
+  const profiles = await allRows<{ id: string; name: string }>((from, to) => admin.from('profiles').select('id, name').order('id').range(from, to));
+  for (const p of profiles) names.set(p.id, p.name);
 
   const members = new Map<string, string>(); // email → first name
   for (let page = 1; ; page++) {
@@ -81,19 +85,33 @@ async function syncMailingList() {
   const [members, contacts] = await Promise.all([confirmedMembers(), segmentContacts(segmentId)]);
   const inSegment = new Map(contacts.map((c) => [c.email.toLowerCase(), c]));
   let writes = 0;
-  const done = { added: 0, renamed: 0, removed: 0, left: 0 };
-  const write = async (fn: () => Promise<unknown>) => {
+  const done = { added: 0, renamed: 0, removed: 0, left: 0, failed: 0 };
+  // One write at a time, under Resend's rate limit and this run's cap. A write Resend refuses is logged
+  // and skipped (it's tried again next hour), so it can't stop the rest.
+  const write = async (what: string, fn: () => Promise<unknown>) => {
     if (writes >= MAX_WRITES) { done.left++; return false; }
     if (writes++ > 0) await sleep(WRITE_GAP_MS);
-    await fn();
-    return true;
+    try {
+      await fn();
+      return true;
+    } catch (err) {
+      done.failed++;
+      console.error('Mailing list write failed:', what, err);
+      return false;
+    }
   };
+
+  // Closed accounts first (they're rare, and the privacy policy promises their details go within the hour).
+  for (const [email, contact] of inSegment) {
+    if (members.has(email)) continue;
+    if (await write('remove contact', () => resend(`/contacts/${contact.id}`, { method: 'DELETE' }))) done.removed++;
+  }
 
   for (const [email, firstName] of members) {
     const existing = inSegment.get(email);
     const enc = encodeURIComponent(email);
     if (!existing) {
-      const ok = await write(async () => {
+      const ok = await write('add contact', async () => {
         try {
           // New contacts only: never sends `unsubscribed`, so someone who unsubscribed stays unsubscribed.
           await resend('/contacts', { method: 'POST', body: JSON.stringify({ email, first_name: firstName, segments: [{ id: segmentId }] }) });
@@ -106,16 +124,58 @@ async function syncMailingList() {
       });
       if (ok) done.added++;
     } else if ((existing.first_name ?? '') !== firstName) {
-      if (await write(() => resend(`/contacts/${enc}`, { method: 'PATCH', body: JSON.stringify({ first_name: firstName }) }))) done.renamed++;
+      if (await write('rename contact', () => resend(`/contacts/${enc}`, { method: 'PATCH', body: JSON.stringify({ first_name: firstName }) }))) done.renamed++;
     }
-  }
-  // Closed accounts: delete the contact entirely (the privacy policy promises their details go).
-  for (const [email, contact] of inSegment) {
-    if (members.has(email)) continue;
-    if (await write(() => resend(`/contacts/${contact.id}`, { method: 'DELETE' }))) done.removed++;
   }
   console.log('Mailing list synced', { members: members.size, ...done });
   return { members: members.size, ...done };
+}
+
+// ---------- Alerts for Jack ----------
+
+/** Emails Jack any alerts the payment functions have noted since the last run, in one email. */
+async function sendAlerts() {
+  const { data: alerts, error } = await admin
+    .from('jack_alerts')
+    .select('id, kind, message, created_at')
+    .is('sent_at', null)
+    .order('created_at')
+    .limit(50);
+  if (error) throw error;
+  if (!alerts?.length) return { alerts: 0 };
+  const items = alerts
+    .map((a) => `<li style="margin:0 0 12px">${esc(a.message)}<br><span style="color:#6b6b66;font-size:12px">${new Date(a.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span></li>`)
+    .join('');
+  const ids = alerts.map((a) => a.id);
+  await resend('/emails', {
+    method: 'POST',
+    idempotencyKey: `jack-alerts-${ids[0]}-${ids[ids.length - 1]}`,
+    body: JSON.stringify({
+      from: Deno.env.get('MAIL_FROM') ?? 'Jack of All Trades <hello@jackofalltrades.life>',
+      to: [Deno.env.get('ALERT_EMAIL') ?? 'jackofalltrades.life@gmail.com'],
+      subject: alerts.length === 1 ? `Needs you: ${clip(alerts[0].message, 70)}` : `Needs you: ${alerts.length} things from the site`,
+      html: `<!doctype html><html><body style="margin:0;background:#fafaf7;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#121211;line-height:1.5">
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px">
+    <p style="font-family:Menlo,monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#6b6b66;margin:0 0 12px">Jack of All Trades · needs you</p>
+    <ul style="padding-left:18px;margin:0">${items}</ul>
+    <p style="color:#6b6b66;font-size:12px">Sent to you as the admin. Members never see this email.</p>
+  </div></body></html>`,
+    }),
+  });
+  const { error: markError } = await admin.from('jack_alerts').update({ sent_at: new Date().toISOString() }).in('id', ids);
+  if (markError) console.error('Could not mark alerts sent', markError);
+  console.log('Alerts sent', ids.length);
+  return { alerts: ids.length };
+}
+
+/** Runs one step of the hourly job; a failure is logged and reported, and the other steps still run. */
+async function step<T extends object>(name: string, fn: () => Promise<T>): Promise<T | { [k: string]: string }> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error('member-mail step failed:', name, err);
+    return { [`${name}Error`]: String((err as Error)?.message ?? err).slice(0, 200) };
+  }
 }
 
 // ---------- Table round-up ----------
@@ -128,8 +188,8 @@ const PLAN: Record<string, string> = { deck: 'Full Deck', ace: 'Ace', royal: 'Ro
 async function tableDigest() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const [{ data: posts, error: postsError }, { data: replies, error: repliesError }] = await Promise.all([
-    admin.from('posts').select('id, author_id, author_name, suit, body, mirror_lesson_id, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
-    admin.from('post_replies').select('id, post_id, author_id, author_name, body, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
+    admin.from('posts').select('id, author_id, author_name, suit, mirror_lesson_id, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
+    admin.from('post_replies').select('id, post_id, author_id, author_name, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
   ]);
   if (postsError) throw postsError;
   if (repliesError) throw repliesError;
@@ -139,7 +199,7 @@ async function tableDigest() {
   const replyPostIds = [...new Set((replies ?? []).map((r) => r.post_id))];
   const [{ data: authors }, { data: parents }] = await Promise.all([
     admin.from('profiles').select('id, tier').in('id', authorIds),
-    replyPostIds.length ? admin.from('posts').select('id, author_name, body').in('id', replyPostIds) : Promise.resolve({ data: [] as { id: string; author_name: string; body: string }[] }),
+    replyPostIds.length ? admin.from('posts').select('id, author_name').in('id', replyPostIds) : Promise.resolve({ data: [] as { id: string; author_name: string }[] }),
   ]);
   const tierOf = new Map((authors ?? []).map((a) => [a.id, a.tier as string]));
   const parentOf = new Map((parents ?? []).map((p) => [p.id, p]));
@@ -154,15 +214,13 @@ async function tableDigest() {
   const postHtml = (posts ?? []).map((p) => `
     <div style="border:1px solid #e4e2dc;border-radius:12px;padding:14px;margin:0 0 10px">
       <div style="font-weight:700">${esc(p.author_name)}${badge(p.author_id)}</div>
-      <div style="color:#6b6b66;font-size:13px;margin:2px 0 8px">${p.suit ? esc(SUIT[p.suit] ?? p.suit) + ' · ' : ''}${p.mirror_lesson_id ? 'Mirror answer' : 'Post'}</div>
-      <div style="white-space:pre-wrap">${esc(clip(p.body, 400))}</div>
+      <div style="color:#6b6b66;font-size:13px;margin:2px 0 0">${p.suit ? esc(SUIT[p.suit] ?? p.suit) + ' · ' : ''}${p.mirror_lesson_id ? 'Mirror answer' : 'Post'}</div>
     </div>`).join('');
   const replyHtml = (replies ?? []).map((r) => {
     const parent = parentOf.get(r.post_id);
     return `
     <div style="border-left:3px solid #e4e2dc;padding:4px 0 4px 12px;margin:0 0 12px">
-      <div><strong>${esc(r.author_name)}</strong>${badge(r.author_id)} <span style="color:#6b6b66;font-size:13px">replied to ${esc(parent?.author_name ?? 'a post')}${parent ? `: “${esc(clip(parent.body, 60))}”` : ''}</span></div>
-      <div style="white-space:pre-wrap;margin-top:4px">${esc(clip(r.body, 300))}</div>
+      <div><strong>${esc(r.author_name)}</strong>${badge(r.author_id)} <span style="color:#6b6b66;font-size:13px">replied to ${esc(parent?.author_name ?? 'a post')}</span></div>
     </div>`;
   }).join('');
 
@@ -208,11 +266,22 @@ Deno.serve(async (req) => {
   const { job, member_id } = body;
   try {
     if (job === 'sync') {
-      const list = await syncMailingList();
+      const list = await step('list', syncMailingList);
       // Safety net: any paying member still owed a welcome (for example, if the instant call failed).
-      const welcome = await sendWelcomes(admin);
-      const open = await sendOpenWelcomes(admin);
-      return json({ ...list, ...welcome, ...open });
+      const welcome = await step('welcomes', () => sendWelcomes(admin));
+      const open = await step('openWelcomes', () => sendOpenWelcomes(admin));
+      const result: Record<string, unknown> = { ...list, ...welcome, ...open };
+      const problems = Object.keys(result).filter((k) => k.endsWith('Error')).length
+        + ['failed', 'welcomeFailures', 'openWelcomeFailures'].reduce((n, k) => n + (typeof result[k] === 'number' ? (result[k] as number) : 0), 0);
+      if (problems > 0) {
+        const day = new Date().toISOString().slice(0, 10); // at most one of these a day
+        await admin.from('jack_alerts').upsert(
+          { kind: 'mail_problem', message: `The hourly email job hit ${problems} problem${problems === 1 ? '' : 's'} (${JSON.stringify(result).slice(0, 300)}). It tries again every hour; if you get this two days running, check the member-mail logs in Supabase.`, dedupe: `mail-problem-${day}` },
+          { onConflict: 'dedupe', ignoreDuplicates: true },
+        );
+      }
+      Object.assign(result, await step('alerts', sendAlerts));
+      return json(result);
     }
     if (job === 'welcome') {
       if (member_id && !/^[0-9a-f-]{36}$/i.test(member_id)) return json({ error: 'Bad member id' }, 400);

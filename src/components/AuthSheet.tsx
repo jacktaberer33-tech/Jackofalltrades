@@ -8,10 +8,12 @@ import { UNCONFIRMED, suggestEmail } from '../supabase';
 
 export type AuthMode = 'signup' | 'signin' | 'reset' | 'newPassword';
 
-export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term: initialTerm, onClose, onSignedIn }: {
+export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term: initialTerm, royalFull = false, onClose, onSignedIn }: {
   mode: AuthMode;
   tier?: Tier;
   term?: Term;
+  /** Royal Flush has no places left: choosing it joins the waitlist instead of paying. */
+  royalFull?: boolean;
   onClose: () => void;
   onSignedIn?: (plan: Tier | null, term: Term | null) => void;
 }) {
@@ -80,7 +82,7 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
       if (password.length < 8) {
         setError('Use a password of at least 8 characters.');
       } else {
-        const res = await actions.signUp(name, email, password, tier);
+        const res = await actions.signUp(name, email, password, tier, term);
         if (res.error) setError(res.error);
         else if (res.needsConfirm) {
           setSentTo(email.trim());
@@ -120,8 +122,9 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
   const title = { signup: 'Take a seat', signin: 'Welcome back', reset: 'Reset your password', newPassword: 'Choose a new password' }[mode];
   const chosen = tierById(tier);
   const chosenPrice = priceOption(tier, term);
+  const waitlist = PAYMENTS_LIVE && tier === 'royal' && royalFull;
   const submitLabel =
-    mode === 'signup' ? (tier === 'open' ? 'Join free' : PAYMENTS_LIVE ? 'Continue to payment' : `Join and request ${chosen.name}`)
+    mode === 'signup' ? (tier === 'open' ? 'Join free' : waitlist ? 'Join free and join the waitlist' : PAYMENTS_LIVE ? 'Continue to payment' : `Join and request ${chosen.name}`)
     : mode === 'signin' ? 'Sign in'
     : mode === 'reset' ? 'Send reset link'
     : 'Save new password';
@@ -138,8 +141,21 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
 
         {sentTo ? (
           <div className="stack-16">
-            <p className="body-l">Nearly there. We've sent a link to <strong className="break-all">{sentTo}</strong>. Open it to finish joining.</p>
+            <p className="body-l">
+              Nearly there. We've sent a link to <strong className="break-all">{sentTo}</strong>.{' '}
+              {tier === 'open' || !PAYMENTS_LIVE
+                ? 'Open it to finish joining.'
+                : waitlist
+                  ? "Open it to confirm your email, and you're on the Royal Flush waitlist."
+                  : "Open it to confirm your email, then you'll go straight to payment."}
+            </p>
+            <p className="small">Is that address right? If not, <button type="button" className="link-btn small" onClick={startAgain}>start again with the right one</button>.</p>
             <p className="small muted">Can't see it? Check your Junk or Spam folder. It's from hello@jackofalltrades.life, with the subject "Take your seat at the Table".</p>
+            <p className="small muted">
+              Joined before with this email? You won't get a new link.{' '}
+              <button type="button" className="link-btn small" onClick={switchTo('signin')}>Sign in</button> or{' '}
+              <button type="button" className="link-btn small" onClick={switchTo('reset')}>reset your password</button> instead.
+            </p>
             {resent && <p className="small" role="status">{resent}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <div className="stack-8">
@@ -148,9 +164,6 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
               </button>
               <button type="button" className="link-btn small self-center" onClick={onClose}>Close</button>
             </div>
-            <p className="small muted center">
-              Wrong email? <button type="button" className="link-btn small" onClick={startAgain}>Start again with the right one</button>
-            </p>
           </div>
         ) : done ? (
           <div className="stack-16">
@@ -167,14 +180,16 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
                     <label key={t.id} className={`tier-option ${tier === t.id ? 'is-on' : ''}`}>
                       <input type="radio" name="join-tier" id={`join-tier-${t.id}`} value={t.id} checked={tier === t.id} onChange={() => setTier(t.id)} />
                       <span className="tier-option__name">{t.name}</span>
-                      <span className="tier-option__price">{t.price}{t.per}</span>
+                      <span className="tier-option__price">{t.id === 'royal' && PAYMENTS_LIVE && royalFull ? 'Full · waitlist' : `${t.price}${t.per}`}</span>
                     </label>
                   ))}
                 </fieldset>
-                <TermPicker tier={tier} value={term} onChange={setTerm} idPrefix="join" />
+                {!waitlist && <TermPicker tier={tier} value={term} onChange={setTerm} idPrefix="join" />}
                 {tier !== 'open' && (
                   <p className="small muted note">
-                    {PAYMENTS_LIVE
+                    {waitlist
+                      ? "Royal Flush is full right now. You'll start on Open Hand and go on the waitlist, and I'll email you when a place opens."
+                      : PAYMENTS_LIVE
                       ? `Next you'll pay ${chosenPrice?.price ?? chosen.price}${chosenPrice?.per ?? chosen.per} securely with Stripe.`
                       : "Payments aren't open yet. You'll start on Open Hand today, and founding members get moved up first when they open."}
                   </p>

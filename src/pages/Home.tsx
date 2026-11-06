@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { FEATURED_LESSON_ID, LESSONS, canWatch, lessonById, seriesById, suitById, tierById, unlockedBy } from '../content';
+import { FEATURED_LESSON_ID, LESSONS, TIER_RANK, canWatch, lessonById, seriesById, suitById, tierById, unlockedBy } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link } from '../router';
-import { Avatar, SuitMark } from '../components/Cards';
+import { Avatar, HostTag, SuitMark } from '../components/Cards';
 import { Icon, PlayGlyph } from '../components/Icon';
 import { fmtDayLong, fmtDayMonth, fmtEventTime, fromISODate, greeting, nextFridayTable, toISODate } from '../dates';
 
@@ -21,17 +21,30 @@ export function Home() {
   const fridayIso = toISODate(friday);
   const going = state.rsvps.includes(fridayIso);
   const [goingCount, setGoingCount] = useState<number | null>(null);
-  const latest = (state.posts ?? []).find((p) => !p.pinned);
+  // The newest member post, or Jack's pinned one if nobody has posted yet (launch day).
+  const latest = (state.posts ?? []).find((p) => !p.pinned) ?? (state.posts ?? []).find((p) => p.pinned);
   const today = toISODate(now);
   const upcomingCall = state.bookings.find((b) => b.date >= today);
   const watchable = LESSONS.filter((l) => canWatch(effectiveTier(member), l));
   const finished = watchable.filter((l) => state.completed.includes(l.id)).length;
-  const waitingFor = member.requestedTier && member.requestedTier !== 'open' && member.requestedTier !== member.tier && !member.isAdmin ? member.requestedTier : null;
+  // A plan they chose at sign-up (or asked for) that's above the one they're on.
+  const waitingFor = member.requestedTier && member.requestedTier !== 'open' && !member.isAdmin && TIER_RANK[member.requestedTier] > TIER_RANK[member.tier]
+    ? member.requestedTier
+    : null;
+  const [royalLeft, setRoyalLeft] = useState<number | null>(null);
+  const royalFull = waitingFor === 'royal' && royalLeft === 0;
 
   // On the day of the Friday Table, paying members get a Join button (Jack sets the link on the You page).
   const callDay = fridayIso === today;
   const memberCanPost = canPost(member);
   const [callLink, setCallLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!PAYMENTS_LIVE || waitingFor !== 'royal') return;
+    let live = true;
+    actions.royalPlacesLeft().then((n) => { if (live) setRoyalLeft(n); });
+    return () => { live = false; };
+  }, [actions, waitingFor]);
 
   useEffect(() => {
     let live = true;
@@ -59,11 +72,18 @@ export function Home() {
       </header>
 
       {waitingFor && (PAYMENTS_LIVE ? (
-        <section className="card card--edge stack-10">
-          <p className="strong">{tierById(waitingFor).name} is open.</p>
-          <p className="small muted">You picked {tierById(waitingFor).name} when you joined. Your seat is ready whenever you are.</p>
-          <PlanAction plan={waitingFor} />
-        </section>
+        royalFull ? (
+          <section className="card card--edge stack-6">
+            <p className="strong">Royal Flush is full right now.</p>
+            <p className="small muted">You're on the waitlist, and I'll email you when one of the five places opens. Until then, everything on {tierById(member.tier).name} is yours.</p>
+          </section>
+        ) : (
+          <section className="card card--edge stack-10">
+            <p className="strong">You haven't paid for {tierById(waitingFor).name} yet.</p>
+            <p className="small muted">You picked it when you joined. Pick up where you left off.</p>
+            <PlanAction plan={waitingFor} initialTerm={member.requestedTerm} />
+          </section>
+        )
       ) : (
         <section className="card card--edge stack-6">
           <p className="strong">You're on the list for {tierById(waitingFor).name}.</p>
@@ -137,10 +157,10 @@ export function Home() {
 
       {latest ? (
         <Link to="/table" className="card row-card">
-          <Avatar name={latest.author} size={36} />
+          <Avatar name={latest.author} size={36} jack={latest.fromJack} />
           <span className="grow">
             <span className="small muted block">From the Table{latest.suit && <> · <SuitMark suit={latest.suit} /></>}</span>
-            <span className="clamp-2"><strong>{latest.author}:</strong> {latest.text}</span>
+            <span className="clamp-2"><strong>{latest.author}</strong>{latest.fromJack && <> <HostTag /></>}<strong>:</strong> {latest.text}</span>
           </span>
           <Icon name="chevronRight" size={18} />
         </Link>

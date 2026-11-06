@@ -106,9 +106,12 @@ export function friendlyError(err: { message?: string; code?: string } | null | 
   if (/rate limit|too many/i.test(msg)) return 'Too many tries in a short time. Wait a few minutes and try again.';
   if (/Password should be at least/i.test(msg)) return 'Use a password of at least 8 characters.';
   if (/bookings_slot_taken/i.test(msg)) return 'Someone has just taken that slot. Pick another time.';
-  if (/bookings_one_per_(month|period)/i.test(msg)) return "You've already got a call in that week or month. Change that one instead.";
-  if (/row-level security|permission denied|42501/i.test(msg + (err.code ?? ''))) return "Your plan doesn't include that yet.";
+  if (/bookings_one_per_(month|period)/i.test(msg)) return "You've already had or booked your call for that month (or week, on Royal Flush). Pick a day in the next one.";
+  if (/name can't be blank/i.test(msg)) return "Your name can't be blank.";
+  if (/posts_body_check|post_replies_body_check/i.test(msg)) return 'That\'s too long for the Table: posts can be up to 2,000 characters.';
+  if (/check constraint|23514/i.test(msg + (err.code ?? ''))) return "That's too long, or blank. Check it and try again.";
+  if (/row-level security|permission denied|42501/i.test(msg + (err.code ?? ''))) return "That isn't open to you right now. If you think it should be, message Jack.";
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return "Couldn't reach the server. Check your connection and try again.";
-  if (/delete_my_account/i.test(msg)) return "Closing accounts from here isn't switched on yet. Ask Jack and he'll do it for you.";
+  if (/Cancel your plan first/i.test(msg)) return 'Your plan still renews. Cancel it first with "Change plan, card or cancel", then close your account.';
   return msg || 'Something went wrong. Try again.';
 }

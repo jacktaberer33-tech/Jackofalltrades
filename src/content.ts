@@ -175,6 +175,9 @@ export const SERIES: Series[] = SUITS.flatMap((suit) =>
 );
 
 export const LESSONS: Lesson[] = SERIES.flatMap((s) => s.lessons);
+
+/** For plan cards and the Terms: lessons arrive over time, so no plan promises cards that aren't there yet. */
+export const DEALT_NOTE = 'The deck is dealt over time, card by card, and the Deck page always shows what\'s ready to watch.';
 export const lessonById = (id: string) => LESSONS.find((l) => l.id === id);
 export const seriesById = (id: string) => SERIES.find((s) => s.id === id);
 
@@ -240,7 +243,7 @@ export const TIERS: TierInfo[] = [
     price: '£19',
     per: '/month',
     pitch: 'The core of the membership.',
-    perks: ['The first five cards of every suit, Ace to 5', 'A Mirror question with every lesson', "A seat at the Table, the members' community", 'Monthly live Friday Table with me'],
+    perks: ['The first five cards of every suit, Ace to 5, as each is dealt', 'A Mirror question with every lesson', "A seat at the Table, the members' community", 'Monthly live Friday Table with me'],
     options: [{ term: 'month', label: 'Monthly', price: '£19', per: '/month' }],
   },
   {
@@ -249,7 +252,7 @@ export const TIERS: TierInfo[] = [
     price: '£99',
     per: '/month',
     pitch: 'For when you want me in your corner.',
-    perks: ['Everything in the Full Deck', 'The whole deck: every card, Ace to King, in all four suits', 'A 45-minute 1:1 video call with me, every month', 'An accountability group of up to six, every other week', 'First replies from me on the Table'],
+    perks: ['Everything in the Full Deck', 'Every card up to King as it\'s dealt, in all four suits', 'A 45-minute 1:1 video call with me, every month', 'An accountability group of up to six, every other week', 'First replies from me on the Table'],
     options: [
       { term: 'month', label: 'Monthly', price: '£99', per: '/month' },
       { term: 'quarter', label: '3 months', price: '£269', per: '/3 months', note: 'Paid upfront · save £28' },
@@ -285,6 +288,9 @@ export function priceOption(tier: Tier, term?: Term | null): PriceOption | undef
   return opts.find((o) => o.term === term) ?? opts[0];
 }
 export const defaultTerm = (tier: Tier): Term => tierById(tier).options[0]?.term ?? 'month';
+
+/** A plan's name as it reads mid-sentence: "the Full Deck", but "Ace", "Royal Flush", "Open Hand". */
+export const planInSentence = (tier: Tier): string => (tier === 'deck' ? 'the Full Deck' : tierById(tier).name);
 
 /** Royal Flush is capped. The database (royal_places_left) is the source of truth; this is for copy. */
 export const ROYAL_PLACES = 5;

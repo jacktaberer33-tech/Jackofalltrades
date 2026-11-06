@@ -19,6 +19,25 @@ export function weekKey(d: Date): string {
   return toISODate(monday);
 }
 
+/** Today's date in the UK, as YYYY-MM-DD, wherever the member's device is. Calls and the Friday Table run on UK time. */
+export function todayUKISO(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+/** Today in the UK, as a local midnight Date (for day grids). */
+export const todayUK = (now = new Date()) => fromISODate(todayUKISO(now));
+
+/** England and Wales bank holidays, when there are no 1:1 calls. Add each new year's from gov.uk/bank-holidays. */
+export const BANK_HOLIDAYS = new Set([
+  '2026-01-01', '2026-04-03', '2026-04-06', '2026-05-04', '2026-05-25', '2026-08-31', '2026-12-25', '2026-12-28',
+  '2027-01-01', '2027-03-26', '2027-03-29', '2027-05-03', '2027-05-31', '2027-08-30', '2027-12-27', '2027-12-28',
+]);
+
+/** True if the Friday Table (7pm) falls on this day. */
+export function isFridayTableDay(iso: string): boolean {
+  const d = fromISODate(iso);
+  return [-1, 0].some((offset) => toISODate(fridayTableFor(d.getFullYear(), d.getMonth() + offset)) === iso);
+}
+
 /** The next `count` weekdays (Mon–Fri), starting tomorrow. */
 export function upcomingWeekdays(now: Date, count: number): Date[] {
   const out: Date[] = [];

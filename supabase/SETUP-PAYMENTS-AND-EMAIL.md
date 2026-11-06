@@ -30,8 +30,14 @@ environment: account switcher, top left → Sandboxes), then repeat in live mode
 ### 1. Plans and prices
 
 One **product per plan**, so receipts and invoices name the plan. All recurring, GBP. Set each
-price's **lookup key** (under "More pricing options" / advanced); the code finds prices by it, so
-amounts can change later without code changes.
+price's **lookup key** (under "More pricing options" / advanced): checkout finds the price to charge
+by it. The webhook works out a member's plan from the **product** (the live product ids are in
+`stripe-webhook/index.ts`), so a price change never moves anyone off their plan.
+
+**Raising a price:** make a new price on the same product and move the lookup key to it. Leave the
+old price **active**: existing members (founding members included) stay on it at their old amount.
+If a live subscription ever uses a price on some other product, the member keeps their plan and you
+get an email to sort it out.
 
 | Product | Price | Bills every | Lookup key |
 |---|---|---|---|
@@ -77,7 +83,7 @@ Settings → Billing → **Customer portal**:
 - Allow **switching plans** between **Full Deck** and **Ace** (all their prices). Leave **Royal Flush
   out** of this default configuration: it has 5 places, so members can't pick it there.
 - A **second portal configuration** for upgrades from the app, with all three plans and every price,
-  and metadata `purpose` = `upgrade-confirm`. The app checks there's a free Royal Flush place, then
+  and metadata `purpose` = `upgrade-confirm`. The app holds a free Royal Flush place, then
   opens this one on a "confirm this change" screen (Stripe requires the new price to be in the
   configuration). It's API-only: Claude creates it with the Stripe connection.
 - Upgrades: **prorate** and **invoice immediately**. Downgrades: **at the end of the billing period**,
@@ -96,8 +102,37 @@ Workbench → Webhooks → **Add destination**:
 
 What the webhook does with them: payments and subscription changes set the member's plan.
 **Disputes, early fraud warnings and full refunds cancel the subscription immediately** (a refund
-ends the membership under the terms; a disputed card shouldn't be charged again). Partial refunds
-change nothing. Stripe also emails you about every dispute, and you answer those in the Dashboard.
+ends the membership under the terms; a disputed card shouldn't be charged again). Stripe also emails
+you about every dispute, and you answer those in the Dashboard.
+
+**Cancelling within 14 days (the cooling-off rule in the Terms).** When a member cancels within 14
+days of their first payment, you get an email saying what they're owed: the whole first payment on a
+monthly plan, or the first payment minus the days used on an upfront plan (it works the amount out;
+check what they actually paid if a code took money off). Refund it in Stripe → Payments within 14
+days. Refunding a plan's **first payment** after the member has cancelled ends the plan straight
+away, even a partial refund, so nobody keeps an upfront plan they've been refunded for. Any other
+partial refund (a goodwill one on a plan that isn't cancelled, or on a later payment) changes nothing.
+
+### Alerts: "Needs you" emails
+
+The payment functions note anything you need to act on, and the hourly email job sends it to
+ALERT_EMAIL (jackofalltrades.life@gmail.com) as one "Needs you" email:
+- a member cancelled inside 14 days and is owed a refund (above);
+- someone joined the **Royal Flush waitlist**: when Royal Flush is full, checkout puts them on it
+  (they show as "Asked for: Royal Flush" in Members on your You page) instead of taking payment;
+- Royal Flush has gone over five (it shouldn't: starting a Royal Flush checkout holds a place until
+  that checkout expires, about 30 minutes). Nothing is refunded automatically; you decide;
+- a member has two live subscriptions (checkout now asks Stripe first and closes any other open
+  checkout of theirs, so this shouldn't happen either). Cancel and refund the extra one;
+- a subscription is still live but its account has gone. Cancel it in Stripe;
+- a referral code of someone who has left was used (it's switched off, and no credit is given);
+- the hourly email job hit a problem (at most one of these a day).
+
+### Closing accounts
+
+"Close my account" on the You page goes through the `close-account` function. It asks Stripe first
+and refuses while a plan still renews ("cancel it first"); a plan already set to end is fine. It
+switches off the member's referral code in Stripe, then deletes the account and everything they own.
 
 ### 6. Keys (only you handle these)
 
@@ -183,8 +218,13 @@ re-attach the video, which rewrites it).
   (first name and email). Closed accounts are deleted from Resend. It never touches anyone's
   unsubscribe setting.
 - **8pm round-up (UTC):** on days with new Table posts or replies (not Jack's own), Jack gets one email
-  listing them, with Ace and Royal Flush posts flagged. It goes to `ALERT_EMAIL` (default
-  jackofalltrades.life@gmail.com).
+  saying who posted or replied and in which suit, with Ace and Royal Flush posts flagged and a link to
+  the Table. It leaves out what they wrote, so members' words aren't copied into Gmail (the Privacy
+  Policy says so). It goes to `ALERT_EMAIL` (default jackofalltrades.life@gmail.com).
+- The hourly sync also sends any **"Needs you" alerts** (see Payments → Alerts).
+- **Your inbox:** the Privacy Policy promises these round-ups and alerts are deleted from your Gmail
+  within 12 months. Once a year, search `from:hello@jackofalltrades.life "The Table today" OR "Needs you"`
+  older than a year and delete them.
 
 The scheduled calls carry a secret made inside the database and kept in its vault (`cron_secret`).
 
@@ -236,3 +276,11 @@ How it fits together:
 
 The restricted key needs **Coupons: Read** and **Promotion codes: Write** (table above), plus
 **Customers: Write**, which it already has, for the credit.
+
+## Once a year
+
+- **Bank holidays:** 1:1 calls can't be booked on England and Wales bank holidays. The dates are in
+  `BANK_HOLIDAYS` in `src/dates.ts` (2026 and 2027 so far); add the next year's from
+  gov.uk/bank-holidays before December. Friday Table evenings block the 18:45 and 19:30 slots
+  automatically, including moved dates in `FRIDAY_TABLE_MOVED`.
+- **Your inbox:** delete Table round-ups and "Needs you" emails older than a year (see above).
