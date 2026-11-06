@@ -246,6 +246,14 @@ a.link-btn { display: inline-flex; align-items: center; }
 }
 .pill--accent { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .pill--on-block { color: var(--block-ink); border-color: var(--block-muted); }
+/* "Host" next to Jack's own name at the Table. */
+.host-tag {
+  display: inline-block; vertical-align: 0.1em; margin-left: 2px;
+  padding: 1px 6px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.5;
+}
 
 .field { display: flex; flex-direction: column; gap: 8px; }
 .input {

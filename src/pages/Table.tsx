@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { SUITS, lessonById, suitById, type SuitId } from '../content';
 import { canPost, useStore, type Post, type Reply } from '../store';
-import { Avatar, SuitMark } from '../components/Cards';
+import { Avatar, SuitMark, HostTag } from '../components/Cards';
 import { Icon } from '../components/Icon';
 import { PageHeader, SuitFilter } from '../components/AppShell';
 import { PlanAction } from '../components/PlanAction';
@@ -104,7 +104,7 @@ function PostCard({ post }: { post: Post }) {
       <div className="post__head">
         <Avatar name={post.author} size={36} jack={post.fromJack} />
         <div className="stack-2 grow">
-          <span className="strong">{post.author}{mine && <span className={dark ? 'on-block-muted' : 'muted'}> (you)</span>}</span>
+          <span className="strong">{post.author}{post.fromJack && <> <HostTag /></>}{mine && <span className={dark ? 'on-block-muted' : 'muted'}> (you)</span>}</span>
           <span className={`small ${dark ? 'on-block-muted' : 'muted'}`}>
             {post.suit && <><SuitMark suit={post.suit} /> {suitById(post.suit).name} · </>}
             {fromLesson && 'Mirror answer · '}
@@ -187,7 +187,7 @@ function Replies({ post, dark }: { post: Post; dark: boolean }) {
         <div key={r.id} className="reply">
           <Avatar name={r.author} size={28} jack={r.fromJack} />
           <div className="grow stack-2">
-            <span className="small"><strong>{r.author}</strong> <span className={dark ? 'on-block-muted' : 'muted'}>· {timeAgo(r.createdAt)}</span></span>
+            <span className="small"><strong>{r.author}</strong>{r.fromJack && <> <HostTag /></>} <span className={dark ? 'on-block-muted' : 'muted'}>· {timeAgo(r.createdAt)}</span></span>
             <p className="reply__text">{r.text}</p>
           </div>
           {(r.authorId === member.id || member.isAdmin) && (

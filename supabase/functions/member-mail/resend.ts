@@ -41,3 +41,19 @@ export async function resend(path: string, init: RequestInit & { idempotencyKey?
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Reads every row of a query, 1,000 at a time (the most the database returns in one go). `page` builds the
+ * query for one range; give it a stable order so pages don't overlap.
+ */
+export async function allRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if (!data || data.length < 1000) return out;
+  }
+}

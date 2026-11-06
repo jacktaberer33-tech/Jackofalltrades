@@ -218,8 +218,13 @@ re-attach the video, which rewrites it).
   (first name and email). Closed accounts are deleted from Resend. It never touches anyone's
   unsubscribe setting.
 - **8pm round-up (UTC):** on days with new Table posts or replies (not Jack's own), Jack gets one email
-  listing them, with Ace and Royal Flush posts flagged. It goes to `ALERT_EMAIL` (default
-  jackofalltrades.life@gmail.com).
+  saying who posted or replied and in which suit, with Ace and Royal Flush posts flagged and a link to
+  the Table. It leaves out what they wrote, so members' words aren't copied into Gmail (the Privacy
+  Policy says so). It goes to `ALERT_EMAIL` (default jackofalltrades.life@gmail.com).
+- The hourly sync also sends any **"Needs you" alerts** (see Payments → Alerts).
+- **Your inbox:** the Privacy Policy promises these round-ups and alerts are deleted from your Gmail
+  within 12 months. Once a year, search `from:hello@jackofalltrades.life "The Table today" OR "Needs you"`
+  older than a year and delete them.
 
 The scheduled calls carry a secret made inside the database and kept in its vault (`cron_secret`).
 

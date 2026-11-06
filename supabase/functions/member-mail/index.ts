@@ -13,14 +13,16 @@
 //                        Each step runs on its own, and one contact or email Resend refuses is skipped and
 //                        noted, so a single bad address can't hold up everyone else's welcome.
 //   { "job": "digest" }  every evening. Emails Jack a round-up of the day's new Table posts and replies
-//                        (not his own), only on days with activity. Ace and Royal Flush posts are flagged,
-//                        since those members get first replies from Jack.
+//                        (not his own), only on days with activity: who posted, in which suit, with a link.
+//                        It leaves out what they wrote, so members' words stay on the Table and aren't
+//                        copied into Jack's inbox. Ace and Royal Flush posts are flagged, since those
+//                        members get first replies from Jack.
 //
 // Secrets: RESEND_API_KEY (full access, from the Resend team that owns jackofalltrades.life). The cron
 // secret lives in the database vault (see resend.ts). Optional: ALERT_EMAIL (where the round-up goes,
 // default jackofalltrades.life@gmail.com), MAIL_FROM (default "Jack of All Trades <hello@jackofalltrades.life>").
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { fromCron, json, resend, sleep } from './resend.ts';
+import { allRows, fromCron, json, resend, sleep } from './resend.ts';
 import { sendOpenWelcomes, sendTestWelcomes, sendWelcomes } from './welcome.ts';
 
 const SEGMENT_NAME = 'Members';
@@ -49,9 +51,8 @@ async function membersSegmentId(): Promise<string> {
 /** Everyone with a confirmed email, with the first name on their profile. */
 async function confirmedMembers(): Promise<Map<string, string>> {
   const names = new Map<string, string>();
-  const { data: profiles, error } = await admin.from('profiles').select('id, name');
-  if (error) throw error;
-  for (const p of profiles ?? []) names.set(p.id, p.name);
+  const profiles = await allRows<{ id: string; name: string }>((from, to) => admin.from('profiles').select('id, name').order('id').range(from, to));
+  for (const p of profiles) names.set(p.id, p.name);
 
   const members = new Map<string, string>(); // email → first name
   for (let page = 1; ; page++) {
@@ -187,8 +188,8 @@ const PLAN: Record<string, string> = { deck: 'Full Deck', ace: 'Ace', royal: 'Ro
 async function tableDigest() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const [{ data: posts, error: postsError }, { data: replies, error: repliesError }] = await Promise.all([
-    admin.from('posts').select('id, author_id, author_name, suit, body, mirror_lesson_id, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
-    admin.from('post_replies').select('id, post_id, author_id, author_name, body, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
+    admin.from('posts').select('id, author_id, author_name, suit, mirror_lesson_id, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
+    admin.from('post_replies').select('id, post_id, author_id, author_name, created_at').eq('from_jack', false).gte('created_at', since).order('created_at'),
   ]);
   if (postsError) throw postsError;
   if (repliesError) throw repliesError;
@@ -198,7 +199,7 @@ async function tableDigest() {
   const replyPostIds = [...new Set((replies ?? []).map((r) => r.post_id))];
   const [{ data: authors }, { data: parents }] = await Promise.all([
     admin.from('profiles').select('id, tier').in('id', authorIds),
-    replyPostIds.length ? admin.from('posts').select('id, author_name, body').in('id', replyPostIds) : Promise.resolve({ data: [] as { id: string; author_name: string; body: string }[] }),
+    replyPostIds.length ? admin.from('posts').select('id, author_name').in('id', replyPostIds) : Promise.resolve({ data: [] as { id: string; author_name: string }[] }),
   ]);
   const tierOf = new Map((authors ?? []).map((a) => [a.id, a.tier as string]));
   const parentOf = new Map((parents ?? []).map((p) => [p.id, p]));
@@ -213,15 +214,13 @@ async function tableDigest() {
   const postHtml = (posts ?? []).map((p) => `
     <div style="border:1px solid #e4e2dc;border-radius:12px;padding:14px;margin:0 0 10px">
       <div style="font-weight:700">${esc(p.author_name)}${badge(p.author_id)}</div>
-      <div style="color:#6b6b66;font-size:13px;margin:2px 0 8px">${p.suit ? esc(SUIT[p.suit] ?? p.suit) + ' · ' : ''}${p.mirror_lesson_id ? 'Mirror answer' : 'Post'}</div>
-      <div style="white-space:pre-wrap">${esc(clip(p.body, 400))}</div>
+      <div style="color:#6b6b66;font-size:13px;margin:2px 0 0">${p.suit ? esc(SUIT[p.suit] ?? p.suit) + ' · ' : ''}${p.mirror_lesson_id ? 'Mirror answer' : 'Post'}</div>
     </div>`).join('');
   const replyHtml = (replies ?? []).map((r) => {
     const parent = parentOf.get(r.post_id);
     return `
     <div style="border-left:3px solid #e4e2dc;padding:4px 0 4px 12px;margin:0 0 12px">
-      <div><strong>${esc(r.author_name)}</strong>${badge(r.author_id)} <span style="color:#6b6b66;font-size:13px">replied to ${esc(parent?.author_name ?? 'a post')}${parent ? `: “${esc(clip(parent.body, 60))}”` : ''}</span></div>
-      <div style="white-space:pre-wrap;margin-top:4px">${esc(clip(r.body, 300))}</div>
+      <div><strong>${esc(r.author_name)}</strong>${badge(r.author_id)} <span style="color:#6b6b66;font-size:13px">replied to ${esc(parent?.author_name ?? 'a post')}</span></div>
     </div>`;
   }).join('');
 

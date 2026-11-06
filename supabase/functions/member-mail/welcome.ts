@@ -6,7 +6,7 @@
 // public.welcome_sent records what's gone out. Nobody gets the same welcome twice, nobody is welcomed to a
 // lower plan after a downgrade, and admin accounts never get one.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { resend, sleep } from './resend.ts';
+import { allRows, resend, sleep } from './resend.ts';
 
 type Paid = 'deck' | 'ace' | 'royal';
 type Plan = 'open' | Paid;
@@ -130,14 +130,18 @@ const RANK: Record<string, number> = { open: 0, deck: 1, ace: 2, royal: 3 };
  * memberId, to every paying member still owed one (the hourly safety net).
  */
 export async function sendWelcomes(admin: SupabaseClient, memberId?: string) {
-  let query = admin.from('profiles').select('id, name, tier, is_admin').in('tier', ['deck', 'ace', 'royal']).eq('is_admin', false);
-  if (memberId) query = query.eq('id', memberId);
-  const [{ data: members, error }, { data: sent, error: sentError }] = await Promise.all([
-    query,
-    admin.from('welcome_sent').select('member_id, tier'),
+  const memberPage = (from: number, to: number) => {
+    let query = admin.from('profiles').select('id, name, tier, is_admin').in('tier', ['deck', 'ace', 'royal']).eq('is_admin', false);
+    if (memberId) query = query.eq('id', memberId);
+    return query.order('id').range(from, to);
+  };
+  const [members, sent] = await Promise.all([
+    allRows<{ id: string; name: string; tier: string; is_admin: boolean }>(memberPage),
+    allRows<{ member_id: string; tier: string }>((from, to) => {
+      const q = admin.from('welcome_sent').select('member_id, tier');
+      return (memberId ? q.eq('member_id', memberId) : q).order('member_id').order('tier').range(from, to);
+    }),
   ]);
-  if (error) throw error;
-  if (sentError) throw sentError;
   // The highest plan each member has already been welcomed to. A welcome only goes out for a plan above
   // that, so someone who drops from Ace to the Full Deck isn't welcomed to the Full Deck afterwards.
   const welcomedUpTo = new Map<string, number>();
@@ -192,12 +196,11 @@ const HOUR = 60 * 60 * 1000;
  * that plan's welcome instead).
  */
 export async function sendOpenWelcomes(admin: SupabaseClient) {
-  const [{ data: members, error }, { data: sent, error: sentError }] = await Promise.all([
-    admin.from('profiles').select('id, name, requested_tier, created_at').eq('tier', 'open').eq('is_admin', false).gte('created_at', OPEN_WELCOME_FROM),
-    admin.from('welcome_sent').select('member_id'),
+  const [members, sent] = await Promise.all([
+    allRows<{ id: string; name: string; requested_tier: string | null; created_at: string }>((from, to) =>
+      admin.from('profiles').select('id, name, requested_tier, created_at').eq('tier', 'open').eq('is_admin', false).gte('created_at', OPEN_WELCOME_FROM).order('id').range(from, to)),
+    allRows<{ member_id: string }>((from, to) => admin.from('welcome_sent').select('member_id').order('member_id').order('tier').range(from, to)),
   ]);
-  if (error) throw error;
-  if (sentError) throw sentError;
   const welcomed = new Set((sent ?? []).map((s) => s.member_id));
   const friday = nextFridayTable();
   let count = 0;

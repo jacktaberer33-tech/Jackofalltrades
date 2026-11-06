@@ -4,7 +4,7 @@ import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
 import { canPost, effectiveTier, useStore } from '../store';
 import { Link } from '../router';
-import { Avatar, SuitMark } from '../components/Cards';
+import { Avatar, HostTag, SuitMark } from '../components/Cards';
 import { Icon, PlayGlyph } from '../components/Icon';
 import { fmtDayLong, fmtDayMonth, fmtEventTime, fromISODate, greeting, nextFridayTable, toISODate } from '../dates';
 
@@ -156,10 +156,10 @@ export function Home() {
 
       {latest ? (
         <Link to="/table" className="card row-card">
-          <Avatar name={latest.author} size={36} />
+          <Avatar name={latest.author} size={36} jack={latest.fromJack} />
           <span className="grow">
             <span className="small muted block">From the Table{latest.suit && <> · <SuitMark suit={latest.suit} /></>}</span>
-            <span className="clamp-2"><strong>{latest.author}:</strong> {latest.text}</span>
+            <span className="clamp-2"><strong>{latest.author}</strong>{latest.fromJack && <> <HostTag /></>}<strong>:</strong> {latest.text}</span>
           </span>
           <Icon name="chevronRight" size={18} />
         </Link>

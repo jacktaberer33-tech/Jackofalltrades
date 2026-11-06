@@ -52,6 +52,11 @@ export function SuitMark({ suit }: { suit: SuitId }) {
   return <span className={s.red ? 'suit suit--red' : 'suit'} aria-hidden="true">{s.symbol}</span>;
 }
 
+/** Marks posts and replies from Jack himself, so a member called Jack can't be mistaken for him. */
+export function HostTag() {
+  return <span className="host-tag">Host</span>;
+}
+
 export function Avatar({ name, size = 40, jack = false }: { name: string; size?: number; jack?: boolean }) {
   if (jack) return <LogoMark size="sm" />;
   const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
