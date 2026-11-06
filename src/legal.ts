@@ -253,11 +253,12 @@ const terms: LegalDoc = {
         { h3: 'Open Hand: free' },
         { p: `The first full lesson in each of the four suits, weekly lesson clips on Instagram, a monthly email from me, and the ability to read the Table.` },
         { h3: 'Full Deck: £19 a month' },
-        { p: `The first five series of lessons (Ace to 5) in each of the four suits, with a Mirror question for every lesson, the ability to post and reply at the Table, and a live Friday Table session with me once a month.` },
+        { p: `The first five series of lessons (Ace to 5) in each of the four suits, as they're released, with a Mirror question for every lesson, the ability to post and reply at the Table, and a live Friday Table session with me once a month.` },
         { h3: 'Ace: £99 a month, or £269 for 3 months, or £495 for 6 months' },
-        { p: `Everything in the Full Deck, plus every series of lessons (Ace to King) across all four suits, one 45-minute 1:1 video call with me each calendar month, a place in an accountability group of up to six members that meets every other week, and first replies from me at the Table. Ace places are limited.` },
+        { p: `Everything in the Full Deck, plus every series of lessons (Ace to King) across all four suits as they're released, one 45-minute 1:1 video call with me each calendar month, a place in an accountability group of up to six members that meets every other week, and first replies from me at the Table. Ace places are limited.` },
         { h3: 'Royal Flush: £949 for 3 months, or £1,745 for 6 months' },
         { p: `Everything in Ace, plus two Joker lessons in each suit that only Royal Flush members can watch, a 45-minute 1:1 video call with me every week with written notes and three actions afterwards, voice notes between calls answered within one working day, a 60-minute kickoff call and your own 90-day plan, a personal training plan written by me, a run, ride or hike together once a quarter, and first pick of call times. Royal Flush is limited to five members at a time; when it's full, you can join the waitlist. Because the 90-day plan and the quarterly session in person run on a three-month rhythm, Royal Flush is sold in blocks of three or six months, paid upfront.` },
+        { p: `Lessons are released over time, card by card. The Deck page in the app always shows which ones are ready to watch, so you can see what's there before you join or upgrade.` },
         { p: `Prices are in pounds sterling and are the full amount you pay. The membership is a living thing: I'll keep adding lessons, and I may update, reorder or retire older ones, or change how features work, to keep it useful. If I make a change that significantly reduces what your paid plan includes, I'll tell you in advance, and you can cancel and receive a refund for any period you've paid for but won't use.` },
       ],
     },
@@ -331,10 +332,10 @@ const terms: LegalDoc = {
       title: '1:1 calls and the Friday Table',
       blocks: [
         { h3: '1:1 calls (Ace and Royal Flush)' },
-        { p: `Ace includes one 45-minute 1:1 video call with me in each calendar month, booked in the app from the times available. I'll send you the link the day before.` },
+        { p: `Ace includes one 45-minute 1:1 video call with me in each calendar month, booked in the app from the times available. Times are UK time. There are no 1:1 calls on bank holidays in England and Wales, or in the hour of the Friday Table. I'll send you the link the day before.` },
         {
           ul: [
-            `If you need to move your call, please cancel it in the app at least 24 hours beforehand and book another time in the same month.`,
+            `If you need to move your call, change or cancel it in the app by the end of the day before, and book another time in the same month. On the day itself, message me.`,
             `If you miss a call without letting me know, it counts as your call for that month.`,
             `If I need to move a call, I'll offer you another time. If we can't find one that month, the call carries over to the next.`,
             `Otherwise, unused calls don't carry over from one month to the next.`,
@@ -505,14 +506,14 @@ const guidelines: LegalDoc = {
       id: 'reporting',
       title: 'Reporting a problem',
       blocks: [
-        { p: `If you see something that breaks these guidelines, email me at {{email}} with a description of the post and where it is. I read every report, I keep reports confidential, and I act on them as quickly as I can.` },
+        { p: `If you see something that breaks these guidelines, tap "Report" on the post, which opens an email to me with the post's details filled in, or email me at {{email}}. I read every report, I keep reports confidential, and I act on them as quickly as I can.` },
       ],
     },
     {
       id: 'moderation',
       title: `What I'll do`,
       blocks: [
-        { p: `I may remove posts or replies that break these guidelines. Depending on how serious it is, I'll talk to you about it, pause your ability to post, or end your membership as set out in the [Membership Terms](#/terms). I also pin posts I think everyone should see.` },
+        { p: `I may remove posts or replies that break these guidelines. Depending on how serious it is, I'll talk to you about it, move you to Open Hand (where you can read the Table but not post) with a refund of any time you've paid for but won't use, or end your membership as set out in the [Membership Terms](#/terms). I also pin posts I think everyone should see.` },
         { p: `Pull up a chair. Be honest. Be kind. Seek discomfort.` },
       ],
     },

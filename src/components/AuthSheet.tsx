@@ -151,6 +151,11 @@ export function AuthSheet({ mode: initialMode, tier: initialTier = 'deck', term:
             </p>
             <p className="small">Is that address right? If not, <button type="button" className="link-btn small" onClick={startAgain}>start again with the right one</button>.</p>
             <p className="small muted">Can't see it? Check your Junk or Spam folder. It's from hello@jackofalltrades.life, with the subject "Take your seat at the Table".</p>
+            <p className="small muted">
+              Joined before with this email? You won't get a new link.{' '}
+              <button type="button" className="link-btn small" onClick={switchTo('signin')}>Sign in</button> or{' '}
+              <button type="button" className="link-btn small" onClick={switchTo('reset')}>reset your password</button> instead.
+            </p>
             {resent && <p className="small" role="status">{resent}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <div className="stack-8">

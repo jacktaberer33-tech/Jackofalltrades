@@ -4,14 +4,20 @@ import { useStore, type Booking } from '../store';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/AppShell';
 import { PlanAction } from '../components/PlanAction';
-import { fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, toISODate, upcomingWeekdays, weekKey } from '../dates';
+import { BANK_HOLIDAYS, fmtDayLong, fmtDayMonth, fmtDayShort, fmtMonth, fromISODate, isFridayTableDay, toISODate, todayUK, todayUKISO, upcomingWeekdays, weekKey } from '../dates';
+
+const monthKey = (iso: string) => iso.slice(0, 7);
+/** Times that clash with the Friday Table (7pm) on its evening. */
+const FRIDAY_TABLE_CLASH = new Set(['18:45', '19:30']);
 
 export function Ace() {
   const { state } = useStore();
   const member = state.member!;
-  const today = toISODate(new Date());
+  const today = todayUKISO();
   const upcoming = state.bookings.filter((b) => b.date >= today);
   const [editing, setEditing] = useState<string | null>(null);
+  // Ace books one call a calendar month, so a call already had this month counts too.
+  const monthsBooked = (except: string | null) => new Set(state.bookings.filter((b) => b.id !== except).map((b) => monthKey(b.date)));
 
   if (member.isAdmin) return <JacksCalls />;
 
@@ -46,28 +52,34 @@ export function Ace() {
   // Ace: one call a month, shown one at a time. Royal Flush: one a week, booked up to four weeks ahead.
   if (!royal) {
     const booking = upcoming[0] ?? null;
+    const hadThisMonth = !booking && monthsBooked(null).has(monthKey(today));
     return (
       <div className="stack-16">
         <PageHeader title="Your 1:1" aside={<span className="pill">A{'♠︎'} Ace member</span>} />
         <section className="feature feature--static stack-8">
           <p className="body-l on-block">45 minutes with Jack, once a month. Bring the thing you can't say anywhere else.</p>
           <p className="mono small on-block-muted">
-            {booking ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked` : 'One call a month · weekdays'}
+            {booking
+              ? `Your ${fmtMonth(fromISODate(booking.date))} call is booked`
+              : hadThisMonth
+                ? `You've had your ${fmtMonth(fromISODate(today))} call · next month's opens two weeks ahead`
+                : 'One call a month · weekdays'}
           </p>
         </section>
         {booking && editing !== booking.id ? (
           <Booked booking={booking} onChange={() => setEditing(booking.id)} />
         ) : (
-          <BookingForm existing={booking} horizon={10} onDone={() => setEditing(null)} />
+          <BookingForm existing={booking} horizon={10} blockedMonths={monthsBooked(booking?.id ?? null)} onDone={() => setEditing(null)} />
         )}
       </div>
     );
   }
 
+  // Royal Flush books one call a week, so a call already had earlier this week counts too.
   const weeksBooked = (except: string | null) =>
-    new Set(upcoming.filter((b) => b.id !== except).map((b) => weekKey(fromISODate(b.date))));
+    new Set(state.bookings.filter((b) => b.id !== except).map((b) => weekKey(fromISODate(b.date))));
   const editingBooking = upcoming.find((b) => b.id === editing) ?? null;
-  const allWeeksBooked = upcomingWeekdays(new Date(), 20).every((d) => weeksBooked(null).has(weekKey(d)));
+  const allWeeksBooked = upcomingWeekdays(todayUK(), 20).every((d) => weeksBooked(null).has(weekKey(d)));
 
   return (
     <div className="stack-16">
@@ -101,11 +113,11 @@ export function Ace() {
 function Booked({ booking, onChange }: { booking: Booking; onChange: () => void }) {
   const { actions } = useStore();
   const [confirming, setConfirming] = useState(false);
-  const isToday = booking.date === toISODate(new Date());
+  const isToday = booking.date === todayUKISO();
   return (
     <section className="card card--edge stack-12" aria-labelledby="booked-title">
       <p className="eyebrow accent-text strong">Booked</p>
-      <h2 id="booked-title" className="display-m">{fmtDayLong(fromISODate(booking.date))} at {booking.time}</h2>
+      <h2 id="booked-title" className="display-m">{fmtDayLong(fromISODate(booking.date))} at {booking.time} <span className="muted small">UK time</span></h2>
       <p className="muted small">Video call · 45 minutes · Jack sends the link the day before.</p>
       {booking.topic && (
         <div className="quote">
@@ -118,6 +130,7 @@ function Booked({ booking, onChange }: { booking: Booking; onChange: () => void 
       ) : confirming ? (
         <div className="stack-8">
           <p className="strong">Cancel this call? You can book another time.</p>
+          <p className="small muted">You can cancel or move a call up to the end of the day before it.</p>
           <div className="row-wrap">
             <button type="button" className="btn btn--accent btn--sm" onClick={() => actions.cancelBooking(booking.id)}>Cancel the call</button>
             <button type="button" className="btn btn--outline btn--sm" onClick={() => setConfirming(false)}>Keep it</button>
@@ -133,19 +146,24 @@ function Booked({ booking, onChange }: { booking: Booking; onChange: () => void 
   );
 }
 
-function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
+function BookingForm({ existing, onDone, horizon, blockedWeeks, blockedMonths }: {
   existing: Booking | null;
   onDone: () => void;
   /** How many weekdays ahead the member can book. */
   horizon: number;
   /** Royal Flush: weeks that already have a call. */
   blockedWeeks?: Set<string>;
+  /** Ace: months that already have a call. */
+  blockedMonths?: Set<string>;
 }) {
   const { actions } = useStore();
-  const days = useMemo(() => upcomingWeekdays(new Date(), horizon), [horizon]);
+  const days = useMemo(() => upcomingWeekdays(todayUK(), horizon), [horizon]);
   const weekTaken = (iso: string) => blockedWeeks?.has(weekKey(fromISODate(iso))) ?? false;
-  const firstOpen = days.map(toISODate).find((iso) => !weekTaken(iso)) ?? toISODate(days[0]);
-  const [date, setDate] = useState<string>(existing?.date ?? firstOpen);
+  const monthTaken = (iso: string) => blockedMonths?.has(monthKey(iso)) ?? false;
+  const closed = (iso: string) => BANK_HOLIDAYS.has(iso);
+  const unavailable = (iso: string) => weekTaken(iso) || monthTaken(iso) || closed(iso);
+  const firstOpen = days.map(toISODate).find((iso) => !unavailable(iso)) ?? null;
+  const [date, setDate] = useState<string>(existing?.date ?? firstOpen ?? toISODate(days[0]));
   const [time, setTime] = useState<string | null>(existing?.time ?? null);
   const [topic, setTopic] = useState(existing?.topic ?? '');
   const [taken, setTaken] = useState<Set<string> | null>(null);
@@ -162,7 +180,8 @@ function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
     return () => { live = false; };
   }, [actions, days, mine]);
 
-  const isTaken = (d: string, t: string) => taken?.has(key(d, t)) ?? false;
+  // Taken by someone else, or clashing with the Friday Table that evening.
+  const isTaken = (d: string, t: string) => (taken?.has(key(d, t)) ?? false) || (isFridayTableDay(d) && FRIDAY_TABLE_CLASH.has(t));
   const dayFull = (d: string) => CALL_TIMES.every((t) => isTaken(d, t));
 
   const book = async () => {
@@ -183,6 +202,16 @@ function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
 
   const chosen = fromISODate(date);
 
+  if (!existing && !firstOpen) {
+    return (
+      <p className="muted small">
+        {blockedMonths?.size
+          ? "You've had this month's call. Days in next month appear here two weeks ahead."
+          : 'Nothing to book in the next few weeks yet. New days open as each week passes.'}
+      </p>
+    );
+  }
+
   return (
     <div className="stack-16">
       <div className="stack-8" role="group" aria-labelledby="day-label">
@@ -191,9 +220,11 @@ function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
           {days.map((d) => {
             const iso = toISODate(d);
             const full = dayFull(iso);
-            const booked = weekTaken(iso);
+            const booked = weekTaken(iso) || monthTaken(iso);
+            const holiday = closed(iso);
+            const why = holiday ? ', bank holiday, no calls' : weekTaken(iso) ? ', you already have a call that week' : monthTaken(iso) ? ', you already have a call that month' : full ? ', fully booked' : '';
             return (
-              <button key={iso} type="button" className="day" aria-pressed={iso === date} disabled={full || booked} aria-label={`${fmtDayLong(d)}${booked ? ', you already have a call that week' : full ? ', fully booked' : ''}`} onClick={() => { setDate(iso); setTime(null); }}>
+              <button key={iso} type="button" className="day" aria-pressed={iso === date} disabled={full || booked || holiday} aria-label={`${fmtDayLong(d)}${why}`} title={why ? why.slice(2) : undefined} onClick={() => { setDate(iso); setTime(null); }}>
                 <span className="day__dow">{fmtDayShort(d)}</span>
                 <span className="day__num">{d.getDate()}</span>
               </button>
@@ -203,12 +234,13 @@ function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
       </div>
 
       <div className="stack-8" role="group" aria-labelledby="time-label">
-        <p id="time-label" className="label">Pick a time {taken === null && <span className="muted">· checking what's free…</span>}</p>
+        <p id="time-label" className="label">Pick a time <span className="muted">· UK time</span>{taken === null && <span className="muted"> · checking what's free…</span>}</p>
+        {isFridayTableDay(date) && <p className="small muted">It's the Friday Table that evening, so the 18:45 and 19:30 slots are off.</p>}
         <div className="time-grid">
           {CALL_TIMES.map((t) => {
             const gone = isTaken(date, t);
             return (
-              <button key={t} type="button" className="time" aria-pressed={t === time} disabled={gone || taken === null} aria-label={gone ? `${t}, taken` : t} onClick={() => setTime(t)}>
+              <button key={t} type="button" className="time" aria-pressed={t === time} disabled={gone || taken === null} aria-label={gone ? `${t} UK time, not available` : `${t} UK time`} onClick={() => setTime(t)}>
                 {gone ? <s>{t}</s> : t}
               </button>
             );
@@ -222,7 +254,7 @@ function BookingForm({ existing, onDone, horizon, blockedWeeks }: {
       </div>
 
       <button type="button" className="btn btn--accent btn--block btn--lg" disabled={!time || busy} onClick={book}>
-        {busy ? 'Booking…' : time ? `${existing ? 'Move to' : 'Book'} ${fmtDayShort(chosen)} ${chosen.getDate()} ${chosen.toLocaleDateString('en-GB', { month: 'short' })} at ${time}` : 'Pick a time to book'}
+        {busy ? 'Booking…' : time ? `${existing ? 'Move to' : 'Book'} ${fmtDayShort(chosen)} ${chosen.getDate()} ${chosen.toLocaleDateString('en-GB', { month: 'short' })} at ${time} UK time` : 'Pick a time to book'}
       </button>
       {existing && <button type="button" className="link-btn small center" onClick={onDone}>Keep my current time</button>}
     </div>
@@ -234,7 +266,7 @@ function JacksCalls() {
   const { actions } = useStore();
   const [calls, setCalls] = useState<Booking[] | null>(null);
   const [names, setNames] = useState<Record<string, { name: string; email: string }>>({});
-  const today = toISODate(new Date());
+  const today = todayUKISO();
 
   useEffect(() => {
     let live = true;

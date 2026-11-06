@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy, type Lesson as LessonInfo } from '../content';
-import { canPost, effectiveTier, useStore, type LessonVideo } from '../store';
+import { TABLE_LIMIT, canPost, effectiveTier, useStore, type LessonVideo } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon } from '../components/Icon';
 import { PlanAction } from '../components/PlanAction';
@@ -42,20 +42,26 @@ export function Lesson({ id }: { id: string }) {
   const needs = unlockedBy(lesson);
   const plan = needs === 'open' ? 'deck' : needs;
   const pitch = {
-    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets one free lesson in every suit. The Full Deck unlocks the first five cards of every suit (Ace to 5), plus the Mirror and the Table.'],
-    ace: ['This lesson is part of Ace.', 'Ace unlocks the whole deck, every card from Ace to King in all four suits, plus a 45-minute 1:1 call with me every month.'],
+    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets one free lesson in every suit. The Full Deck unlocks the first five cards of every suit (Ace to 5) as they\'re dealt, plus the Mirror and the Table.'],
+    ace: ['This lesson is part of Ace.', 'Ace unlocks every card up to King in all four suits as they\'re dealt, plus a 45-minute 1:1 call with me every month.'],
     royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit, plus a 1:1 call with me every week. There are five places.'],
   }[plan];
   const complete = state.completed.includes(lesson.id);
   const bookmarked = state.saved.includes(lesson.id);
   const next = nextLesson(lesson);
   const hasText = draft.trim().length > 0;
+  const length = [...draft.trim()].length;
+  const tooLongToShare = length > TABLE_LIMIT;
 
   const savePrivately = async () => {
     setBusy(true);
     const err = await actions.saveMirror(lesson.id, draft);
     setBusy(false);
-    if (!err) setNotice('Saved. Only you can see this.');
+    if (!err) {
+      setNotice(saved?.shared
+        ? 'Saved here. Your earlier version is still on the Table: remove that post there if you want it private.'
+        : 'Saved. Only you can see this.');
+    }
   };
 
   const share = async () => {
@@ -138,10 +144,15 @@ export function Lesson({ id }: { id: string }) {
             <p className="small muted" role="status">
               {notice ?? (saved ? (saved.shared ? 'You shared this answer with the Table.' : 'Saved privately. Only you can see this.') : 'Only you can see this unless you choose to share it.')}
             </p>
+            {canPost(member) && tooLongToShare && (
+              <p className="small" role="note">
+                The Table takes up to {TABLE_LIMIT.toLocaleString('en-GB')} characters, and this is {length.toLocaleString('en-GB')}. Shorten it to share it, or save it privately as it is.
+              </p>
+            )}
             <div className={canPost(member) ? 'grid-2' : 'stack-8'}>
               <button type="button" className="btn btn--ink" disabled={!hasText || busy} onClick={savePrivately}>Save privately</button>
               {canPost(member) && (
-                <button type="button" className="btn btn--outline" disabled={!hasText || busy} onClick={share}>Share to the Table</button>
+                <button type="button" className="btn btn--outline" disabled={!hasText || busy || tooLongToShare} onClick={share}>Share to the Table</button>
               )}
             </div>
           </section>

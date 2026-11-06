@@ -211,6 +211,8 @@ const toBooking = (r: BookingRow): Booking => ({
 });
 
 const POST_SELECT = '*, post_replies(count), post_me_too(count)';
+/** The longest post or reply the Table takes (the database checks it too). */
+export const TABLE_LIMIT = 2000;
 
 type Err = string | null;
 
@@ -481,9 +483,15 @@ function useStoreValue() {
       return null;
     },
     async shareMirror(lessonId: string, suit: SuitId, text: string): Promise<Err> {
-      const err = await actions.saveMirror(lessonId, text, true);
+      if ([...text.trim()].length > TABLE_LIMIT) {
+        const msg = `The Table takes up to ${TABLE_LIMIT.toLocaleString('en-GB')} characters. Shorten it to share, or save it privately.`;
+        notify('error', msg);
+        return msg;
+      }
+      // Post first, and only mark the answer shared once it's really on the Table.
+      const err = await actions.addPost(text, suit, false, lessonId);
       if (err) return err;
-      return actions.addPost(text, suit, false, lessonId);
+      return actions.saveMirror(lessonId, text, true);
     },
 
     // ---------- The Table ----------

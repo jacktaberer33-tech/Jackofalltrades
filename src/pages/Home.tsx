@@ -21,7 +21,8 @@ export function Home() {
   const fridayIso = toISODate(friday);
   const going = state.rsvps.includes(fridayIso);
   const [goingCount, setGoingCount] = useState<number | null>(null);
-  const latest = (state.posts ?? []).find((p) => !p.pinned);
+  // The newest member post, or Jack's pinned one if nobody has posted yet (launch day).
+  const latest = (state.posts ?? []).find((p) => !p.pinned) ?? (state.posts ?? []).find((p) => p.pinned);
   const today = toISODate(now);
   const upcomingCall = state.bookings.find((b) => b.date >= today);
   const watchable = LESSONS.filter((l) => canWatch(effectiveTier(member), l));

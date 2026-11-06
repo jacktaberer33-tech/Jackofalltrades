@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import { ROYAL_PLACES, SUITS, TIERS, TIER_RANK, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
+import { DEALT_NOTE, ROYAL_PLACES, SUITS, TIERS, TIER_RANK, defaultTerm, priceOption, tierById, type Term, type Tier } from '../content';
 import { TermPicker } from '../components/TermPicker';
 import { isPaying, useStore } from '../store';
 import { PAYMENTS_LIVE } from '../config';
@@ -256,6 +256,7 @@ export function Landing() {
               </article>
             ))}
           </div>
+          <p className="small muted center">{DEALT_NOTE}</p>
         </div>
       </section>
 

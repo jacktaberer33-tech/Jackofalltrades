@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { SUITS, lessonById, suitById, type SuitId } from '../content';
+import { SUITS, lessonById, suitById, tierById, type SuitId, type Tier } from '../content';
+import { LEGAL } from '../config';
 import { canPost, useStore, type Post, type Reply } from '../store';
 import { Avatar, SuitMark, HostTag } from '../components/Cards';
 import { Icon } from '../components/Icon';
@@ -19,6 +20,15 @@ export function Table() {
   useEffect(() => {
     void actions.loadPosts();
   }, [actions]);
+
+  // Jack only: which posters are on Ace or Royal Flush, who get first replies from him.
+  const [planOf, setPlanOf] = useState<Map<string, Tier>>(new Map());
+  useEffect(() => {
+    if (!member.isAdmin) return;
+    let live = true;
+    actions.adminMembers().then((rows) => { if (live && rows) setPlanOf(new Map(rows.map((r) => [r.id, r.tier as Tier]))); });
+    return () => { live = false; };
+  }, [actions, member.isAdmin]);
 
   const posts = state.posts;
   const pinned = (posts ?? []).filter((p) => p.pinned);
@@ -74,22 +84,29 @@ export function Table() {
         </section>
       )}
 
-      {pinned.map((p) => <PostCard key={p.id} post={p} />)}
+      {pinned.map((p) => <PostCard key={p.id} post={p} plan={planOf.get(p.authorId)} />)}
 
       <SuitFilter value={filter} onChange={setFilter} label="Filter posts by suit" />
 
       {posts === null && <p className="muted center pad-24">Loading the Table…</p>}
       {posts !== null && feed.length === 0 && (
         <p className="muted center pad-24">
-          {filter === 'all' ? 'Nobody has posted yet. Be the first to say the honest thing.' : 'Nothing in this suit yet.'}
+          {filter !== 'all' ? 'Nothing in this suit yet.' : pinned.length ? 'Nobody else has posted yet. Be the first to say the honest thing.' : 'Nobody has posted yet. Be the first to say the honest thing.'}
         </p>
       )}
-      {feed.map((p) => <PostCard key={p.id} post={p} />)}
+      {feed.map((p) => <PostCard key={p.id} post={p} plan={planOf.get(p.authorId)} />)}
     </div>
   );
 }
 
-function PostCard({ post }: { post: Post }) {
+/** A mailto link for reporting a post to Jack, with enough detail for him to find it. */
+function reportHref(post: Post): string {
+  const snippet = post.text.length > 120 ? `${post.text.slice(0, 119)}…` : post.text;
+  const body = `Post by ${post.author}, ${new Date(post.createdAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}:\n"${snippet}"\n(post ${post.id})\n\nWhat's wrong with it:\n`;
+  return `mailto:${LEGAL.email}?subject=${encodeURIComponent('Report a post at the Table')}&body=${encodeURIComponent(body)}`;
+}
+
+function PostCard({ post, plan }: { post: Post; plan?: Tier }) {
   const { state, actions } = useStore();
   const member = state.member!;
   const [confirming, setConfirming] = useState(false);
@@ -104,7 +121,12 @@ function PostCard({ post }: { post: Post }) {
       <div className="post__head">
         <Avatar name={post.author} size={36} jack={post.fromJack} />
         <div className="stack-2 grow">
-          <span className="strong">{post.author}{post.fromJack && <> <HostTag /></>}{mine && <span className={dark ? 'on-block-muted' : 'muted'}> (you)</span>}</span>
+          <span className="strong">
+            {post.author}
+            {post.fromJack && <> <HostTag /></>}
+            {member.isAdmin && (plan === 'ace' || plan === 'royal') && <> <span className="plan-tag" title="Gets first replies from you">{tierById(plan).name}</span></>}
+            {mine && <span className={dark ? 'on-block-muted' : 'muted'}> (you)</span>}
+          </span>
           <span className={`small ${dark ? 'on-block-muted' : 'muted'}`}>
             {post.suit && <><SuitMark suit={post.suit} /> {suitById(post.suit).name} · </>}
             {fromLesson && 'Mirror answer · '}
@@ -131,6 +153,9 @@ function PostCard({ post }: { post: Post }) {
             <button type="button" className="link-btn small" onClick={() => actions.setPinned(post.id, !post.pinned)}>
               {post.pinned ? 'Unpin' : 'Pin'}
             </button>
+          )}
+          {!mine && !member.isAdmin && !post.fromJack && (
+            <a className="link-btn small" href={reportHref(post)}>Report</a>
           )}
           {(mine || member.isAdmin) && (
             confirming ? (

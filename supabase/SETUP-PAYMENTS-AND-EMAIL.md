@@ -276,3 +276,11 @@ How it fits together:
 
 The restricted key needs **Coupons: Read** and **Promotion codes: Write** (table above), plus
 **Customers: Write**, which it already has, for the credit.
+
+## Once a year
+
+- **Bank holidays:** 1:1 calls can't be booked on England and Wales bank holidays. The dates are in
+  `BANK_HOLIDAYS` in `src/dates.ts` (2026 and 2027 so far); add the next year's from
+  gov.uk/bank-holidays before December. Friday Table evenings block the 18:45 and 19:30 slots
+  automatically, including moved dates in `FRIDAY_TABLE_MOVED`.
+- **Your inbox:** delete Table round-ups and "Needs you" emails older than a year (see above).

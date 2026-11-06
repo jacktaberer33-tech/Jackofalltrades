@@ -82,7 +82,7 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <p>You're in. Welcome to the Full Deck.</p>
         <p>Three things for this week:</p>
         <ol style="padding-left:20px">
-          <li style="margin-bottom:8px"><strong>Pick a suit and start at its Ace.</strong> The first five cards of every suit are yours, Ace to 5. Start with the suit that makes you squirm a bit.</li>
+          <li style="margin-bottom:8px"><strong>Pick a suit and start at its Ace.</strong> The first five cards of every suit are yours, Ace to 5, as each one is dealt. Start with the suit that makes you squirm a bit.</li>
           <li style="margin-bottom:8px"><strong>Answer one Mirror question.</strong> Every lesson ends with one. It's private unless you choose to share it.</li>
           <li><strong>Say hello at the Table.</strong> Reply under the pinned post with your name, your suit and one honest sentence about why you joined.</li>
         </ol>
@@ -96,7 +96,7 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
     return {
       subject: "You've gone Ace",
       html: layout(`${hi}
-        <p>Welcome to Ace. You've got the whole deck now, every card from Ace to King in all four suits, and me in your corner once a month.</p>
+        <p>Welcome to Ace. Every card up to King, in all four suits, is yours as it's dealt, and you've got me in your corner once a month.</p>
         <p><strong>First, book your 1:1.</strong> Open Your 1:1 in the app and pick a time this month. It's 45 minutes on video, and I'll send the link the day before. Bring the thing you can't say anywhere else.</p>
         ${button(`${SITE}/#/ace`, 'Book your 1:1')}
         <p><strong>Your accountability group:</strong> 30 minutes on Google Meet every other week, with up to five other Ace members. Groups start small and fill up to six, and you keep the same group. I'll email you who's in yours and the first call time. If a friend's code brought you here, you'll go in their group if there's room.</p>
