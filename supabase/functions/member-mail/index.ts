@@ -7,11 +7,11 @@
 //                        this sync never re-subscribes anyone.
 //   { "job": "welcome", "member_id"? }  a member's plan just went up (database trigger): send that plan's
 //                        welcome email. The hourly sync also catches any welcome that didn't go out, and
-//                        sends the Open Hand welcome to new free members.
+//                        sends the Open Hand welcome to new free members. It then emails Jack any new alerts
+//                        from the payment functions (public.jack_alerts). Each step runs on its own, and one
+//                        contact or email Resend refuses is skipped and noted, so a single bad address can't
+//                        hold up everyone else's welcome.
 //   { "job": "welcome-test", "to" }  Jack's test copies of every welcome email, marked [Test].
-//                        It then emails Jack any new alerts from the payment functions (public.jack_alerts).
-//                        Each step runs on its own, and one contact or email Resend refuses is skipped and
-//                        noted, so a single bad address can't hold up everyone else's welcome.
 //   { "job": "digest" }  every evening. Emails Jack a round-up of the day's new Table posts and replies
 //                        (not his own), only on days with activity: who posted, in which suit, with a link.
 //                        It leaves out what they wrote, so members' words stay on the Table and aren't
