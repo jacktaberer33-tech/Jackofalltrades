@@ -701,6 +701,8 @@ a.link-btn { display: inline-flex; align-items: center; }
 .lesson-list { list-style: none; padding: 0; border-top: 1px solid var(--line); }
 .lesson-list li + li { border-top: 1px solid var(--line); }
 .lesson-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; text-decoration: none; color: var(--ink); }
+.lesson-row--soon { color: var(--ink-soft); cursor: default; }
+.lesson-row--soon .strong { font-weight: 500; }
 .lesson-row:hover { background: var(--paper); }
 .lesson-row__num {
   width: 30px;

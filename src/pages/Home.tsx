@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FEATURED_LESSON_ID, LESSONS, TIER_RANK, canWatch, lessonById, seriesById, suitById, tierById, unlockedBy } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
-import { canPost, effectiveTier, useStore } from '../store';
+import { canPost, effectiveTier, isFilmed, useStore } from '../store';
 import { Link } from '../router';
 import { Avatar, HostTag, SuitMark } from '../components/Cards';
 import { Icon, PlayGlyph } from '../components/Icon';
@@ -12,11 +12,20 @@ export function Home() {
   const { state, actions } = useStore();
   const member = state.member!;
   const now = new Date();
-  const lesson = lessonById(FEATURED_LESSON_ID)!;
-  const series = seriesById(lesson.seriesId)!;
-  const suit = suitById(lesson.suit);
-  const unlocked = canWatch(effectiveTier(member), lesson);
-  const answered = state.mirror[lesson.id];
+  const tier = effectiveTier(member);
+  const filmed = (id: string) => isFilmed(state.filmed, id);
+  // This week's hand: the featured lesson once it's filmed, otherwise the next filmed lesson for them.
+  const featured = lessonById(FEATURED_LESSON_ID)!;
+  const lesson = filmed(featured.id)
+    ? featured
+    : LESSONS.find((l) => filmed(l.id) && canWatch(tier, l) && !state.completed.includes(l.id))
+      ?? LESSONS.find((l) => filmed(l.id) && canWatch(tier, l))
+      ?? LESSONS.find((l) => filmed(l.id))
+      ?? null;
+  const series = lesson ? seriesById(lesson.seriesId)! : null;
+  const suit = lesson ? suitById(lesson.suit) : null;
+  const unlocked = !!lesson && canWatch(tier, lesson);
+  const answered = lesson ? state.mirror[lesson.id] : undefined;
   const friday = nextFridayTable(now);
   const fridayIso = toISODate(friday);
   const going = state.rsvps.includes(fridayIso);
@@ -25,7 +34,7 @@ export function Home() {
   const latest = (state.posts ?? []).find((p) => !p.pinned) ?? (state.posts ?? []).find((p) => p.pinned);
   const today = toISODate(now);
   const upcomingCall = state.bookings.find((b) => b.date >= today);
-  const watchable = LESSONS.filter((l) => canWatch(effectiveTier(member), l));
+  const watchable = LESSONS.filter((l) => filmed(l.id) && canWatch(tier, l));
   const finished = watchable.filter((l) => state.completed.includes(l.id)).length;
   // A plan they chose at sign-up (or asked for) that's above the one they're on.
   const waitingFor = member.requestedTier && member.requestedTier !== 'open' && !member.isAdmin && TIER_RANK[member.requestedTier] > TIER_RANK[member.tier]
@@ -91,30 +100,40 @@ export function Home() {
         </section>
       ))}
 
-      <Link to={`/lesson/${lesson.id}`} className="feature">
-        <div className="feature__top">
-          <span className="eyebrow eyebrow--on-block">{suit.symbol} {suit.name} · This week's hand</span>
-          {unlocked ? <span className="pill pill--accent">New</span> : <span className="pill pill--on-block"><Icon name="lock" size={12} /> {tierById(unlockedBy(lesson)).name}</span>}
-        </div>
-        <h2 className="display-m">{series.title}: {lesson.title.toLowerCase()}</h2>
-        <div className="feature__meta">
-          <span className="play-dot"><PlayGlyph /></span>
-          <span>{lesson.minutes} min · Part {lesson.number} of {series.lessons.length}</span>
-        </div>
-      </Link>
+      {lesson && series && suit ? (
+        <>
+          <Link to={`/lesson/${lesson.id}`} className="feature">
+            <div className="feature__top">
+              <span className="eyebrow eyebrow--on-block">{suit.symbol} {suit.name} · This week's hand</span>
+              {unlocked ? <span className="pill pill--accent">New</span> : <span className="pill pill--on-block"><Icon name="lock" size={12} /> {tierById(unlockedBy(lesson)).name}</span>}
+            </div>
+            <h2 className="display-m">{series.title}: {lesson.title.toLowerCase()}</h2>
+            <div className="feature__meta">
+              <span className="play-dot"><PlayGlyph /></span>
+              <span>{lesson.minutes} min · Part {lesson.number} of {series.lessons.length}</span>
+            </div>
+          </Link>
 
-      <section className="card stack-12" aria-labelledby="mirror-q">
-        <p className="eyebrow accent-text strong">The Mirror</p>
-        <p id="mirror-q" className="mirror-q">{lesson.mirror}</p>
-        {answered ? (
-          <div className="row-between">
-            <span className="small muted"><Icon name="check" size={14} /> Answered {answered.shared ? 'and shared' : 'privately'}</span>
-            <Link to={`/lesson/${lesson.id}`} className="btn btn--outline btn--sm">Edit answer</Link>
-          </div>
-        ) : (
-          <Link to={`/lesson/${lesson.id}`} className="btn btn--outline btn--sm self-start">{unlocked ? 'Answer privately' : 'See the lesson'}</Link>
-        )}
-      </section>
+          <section className="card stack-12" aria-labelledby="mirror-q">
+            <p className="eyebrow accent-text strong">The Mirror</p>
+            <p id="mirror-q" className="mirror-q">{lesson.mirror}</p>
+            {answered ? (
+              <div className="row-between">
+                <span className="small muted"><Icon name="check" size={14} /> Answered {answered.shared ? 'and shared' : 'privately'}</span>
+                <Link to={`/lesson/${lesson.id}`} className="btn btn--outline btn--sm">Edit answer</Link>
+              </div>
+            ) : (
+              <Link to={`/lesson/${lesson.id}`} className="btn btn--outline btn--sm self-start">{unlocked ? 'Answer privately' : 'See the lesson'}</Link>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="feature stack-8">
+          <span className="eyebrow eyebrow--on-block">This week's hand</span>
+          <h2 className="display-m">The first lessons are being filmed.</h2>
+          <p className="on-block-muted">They'll be in the Deck very soon. Until then, pull up a chair at the Table.</p>
+        </section>
+      )}
 
       <div className="grid-2">
         <section className="card card--tight stack-8">

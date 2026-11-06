@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FEATURED_LESSON_ID, RANKS, SERIES, SUITS, TIER_RANK, canWatch, lessonById, rankName, tierById, unlockedBy, type SuitId } from '../content';
-import { effectiveTier, useStore } from '../store';
+import { effectiveTier, isFilmed, useStore } from '../store';
 import { Link } from '../router';
 import { MiniCard, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
@@ -9,6 +9,9 @@ import { PageHeader, SuitFilter } from '../components/AppShell';
 export function Deck() {
   const { state } = useStore();
   const tier = effectiveTier(state.member);
+  const admin = !!state.member?.isAdmin;
+  // A lesson is live once Jack attaches its video. He sees every lesson, so he can attach them.
+  const filmed = (id: string) => isFilmed(state.filmed, id);
   const [filter, setFilter] = useState<SuitId | 'all'>('all');
   const [open, setOpen] = useState<string[]>(() => [lessonById(FEATURED_LESSON_ID)!.seriesId]);
   const toggleOpen = (id: string) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
@@ -20,7 +23,7 @@ export function Deck() {
 
       {SUITS.filter((s) => filter === 'all' || filter === s.id).map((suit) => {
         const seriesList = SERIES.filter((s) => s.suit === suit.id);
-        const dealt = seriesList.filter((s) => !s.comingSoon && !s.joker).length;
+        const dealt = seriesList.filter((s) => !s.comingSoon && !s.joker && s.lessons.some((l) => filmed(l.id))).length;
         return (
           <section key={suit.id} className="stack-10" aria-labelledby={`suit-${suit.id}`}>
             <div className="row-between">
@@ -37,13 +40,14 @@ export function Deck() {
                 </span>
               );
 
-              if (series.comingSoon) {
+              const live = series.lessons.filter((l) => filmed(l.id));
+              if (series.comingSoon || (!admin && live.length === 0)) {
                 return (
                   <article key={series.id} className="series series--soon" aria-label={`${cardName}: coming soon`}>
                     <div className="series__head">
                       <MiniCard suit={series.suit} faceDown />
                       <span className="grow stack-6">
-                        <span className="series__title">Coming soon {planPill}</span>
+                        <span className="series__title">{series.comingSoon ? 'Coming soon' : 'Filming now'} {planPill}</span>
                         <span className="small muted">{cardName} · not dealt yet</span>
                       </span>
                     </div>
@@ -51,17 +55,22 @@ export function Deck() {
                 );
               }
 
-              const done = series.lessons.filter((l) => state.completed.includes(l.id)).length;
+              // Counts and progress go by the lessons that are out.
+              const out = admin ? series.lessons : live;
+              const done = out.filter((l) => state.completed.includes(l.id)).length;
               const isOpen = open.includes(series.id);
-              const status = done === series.lessons.length ? 'Finished' : done === 0 ? 'Not started' : `${done} of ${series.lessons.length} done`;
+              const status = done === out.length ? 'Finished' : done === 0 ? 'Not started' : `${done} of ${out.length} done`;
+              const lessonCount = live.length === series.lessons.length || admin
+                ? `${series.lessons.length} lessons`
+                : `${live.length} of ${series.lessons.length} lessons out`;
               return (
                 <article key={series.id} className={`series ${series.joker ? 'series--joker' : ''}`}>
                   <button type="button" className="series__head" aria-expanded={isOpen} aria-controls={`series-${series.id}`} onClick={() => toggleOpen(series.id)}>
                     <MiniCard suit={series.suit} rank={series.rank} />
                     <span className="grow stack-6">
                       <span className="series__title">{series.title} {planPill}</span>
-                      <span className="small muted">{cardName} · {series.lessons.length} lessons · {status}</span>
-                      <span className="meter" aria-hidden="true"><span style={{ width: `${(done / series.lessons.length) * 100}%` }} /></span>
+                      <span className="small muted">{cardName} · {lessonCount} · {status}</span>
+                      <span className="meter" aria-hidden="true"><span style={{ width: `${out.length ? (done / out.length) * 100 : 0}%` }} /></span>
                     </span>
                     <span className={`series__chev ${isOpen ? 'is-open' : ''}`}><Icon name="chevronDown" size={20} /></span>
                   </button>
@@ -70,6 +79,19 @@ export function Deck() {
                       {series.lessons.map((lesson) => {
                         const complete = state.completed.includes(lesson.id);
                         const locked = !canWatch(tier, lesson);
+                        if (!filmed(lesson.id) && !admin) {
+                          return (
+                            <li key={lesson.id}>
+                              <div className="lesson-row lesson-row--soon" aria-label={`${lesson.title}: filming soon`}>
+                                <span className="lesson-row__num">{lesson.number}</span>
+                                <span className="grow">
+                                  <span className="block strong">{lesson.title}</span>
+                                  <span className="small muted">Filming soon</span>
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        }
                         return (
                           <li key={lesson.id}>
                             <Link to={`/lesson/${lesson.id}`} className="lesson-row">
@@ -82,6 +104,7 @@ export function Deck() {
                                   {lesson.minutes} min
                                   {lesson.id === FEATURED_LESSON_ID && ' · This week'}
                                   {complete && ' · Finished'}
+                                  {admin && !filmed(lesson.id) && ' · No video yet'}
                                 </span>
                               </span>
                               {locked ? <span className="muted" aria-label={`${tierById(unlockedBy(lesson)).name} only`}><Icon name="lock" size={18} /></span> : <Icon name="chevronRight" size={18} />}

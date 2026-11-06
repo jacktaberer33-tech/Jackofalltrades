@@ -94,6 +94,8 @@ export interface State {
   notice: Notice | null;
   /** True while a payment that just went through is still being set up, so Join buttons wait. */
   settling: boolean;
+  /** Lessons that have a video attached. Only these are live; the rest show as "Filming soon". null = not known (show everything). */
+  filmed: string[] | null;
 }
 
 const EMPTY: Omit<State, 'status' | 'recovering' | 'notice' | 'settling'> = {
@@ -105,7 +107,13 @@ const EMPTY: Omit<State, 'status' | 'recovering' | 'notice' | 'settling'> = {
   bookings: [],
   rsvps: [],
   posts: null,
+  filmed: null,
 };
+
+/** Whether a lesson has its video yet (if that isn't known, assume so). */
+export function isFilmed(filmed: string[] | null, lessonId: string): boolean {
+  return filmed === null || filmed.includes(lessonId);
+}
 
 /** What the member's plan lets them see. Jack sees everything. */
 export function effectiveTier(member: Member | null): Tier {
@@ -250,7 +258,7 @@ function useStoreValue() {
 
   const loadMember = useCallback(async (session: Session) => {
     const uid = session.user.id;
-    const [profile, progress, saved, mirror, meToo, bookings, rsvps] = await Promise.all([
+    const [profile, progress, saved, mirror, meToo, bookings, rsvps, filmed] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('progress').select('lesson_id'),
       supabase.from('saved_lessons').select('lesson_id'),
@@ -258,6 +266,7 @@ function useStoreValue() {
       supabase.from('post_me_too').select('post_id').eq('member_id', uid),
       supabase.from('bookings').select('*').eq('member_id', uid).order('slot_date'),
       supabase.from('event_rsvps').select('event_date').eq('member_id', uid),
+      supabase.rpc('filmed_lessons'),
     ]);
     if (profile.error || !profile.data) {
       fail(profile.error);
@@ -278,6 +287,7 @@ function useStoreValue() {
       meToo: ((meToo.data ?? []) as { post_id: string }[]).map((r) => r.post_id),
       bookings: ((bookings.data ?? []) as BookingRow[]).map(toBooking),
       rsvps: ((rsvps.data ?? []) as { event_date: string }[]).map((r) => r.event_date),
+      filmed: filmed.error ? null : ((filmed.data ?? []) as (string | { filmed_lessons: string })[]).map((r) => (typeof r === 'string' ? r : r.filmed_lessons)),
     }));
     void loadPosts();
   }, [fail, loadPosts]);
@@ -673,7 +683,11 @@ function useStoreValue() {
         ? await supabase.from('lesson_videos').upsert({ lesson_id: lessonId, video_id: videoId, min_tier: minTier })
         : await supabase.from('lesson_videos').delete().eq('lesson_id', lessonId);
       if (error) return fail(error);
-      notify('ok', videoId ? 'Video attached.' : 'Video removed.');
+      setState((s) => {
+        const others = (s.filmed ?? []).filter((id) => id !== lessonId);
+        return { ...s, filmed: videoId ? [...others, lessonId] : others };
+      });
+      notify('ok', videoId ? 'Video attached. The lesson is live for members.' : 'Video removed. The lesson now shows as "Filming soon".');
       return null;
     },
     async adminUpcomingCalls(fromDate: string): Promise<Booking[] | null> {

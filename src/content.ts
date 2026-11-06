@@ -267,7 +267,7 @@ export const TIERS: TierInfo[] = [
     pitch: 'Me in your corner, every week.',
     perks: [
       'Everything in Ace',
-      'Two Joker lessons in every suit, only for Royal Flush',
+      'Two Joker lessons in every suit as they\'re filmed, only for Royal Flush',
       'A 45-minute 1:1 video call every week, with notes and three actions after each',
       'Voice notes between calls, answered within a working day',
       'A 60-minute kickoff and your own 90-day plan',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy, type Lesson as LessonInfo } from '../content';
-import { TABLE_LIMIT, canPost, effectiveTier, useStore, type LessonVideo } from '../store';
+import { TABLE_LIMIT, canPost, effectiveTier, isFilmed, useStore, type LessonVideo } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon } from '../components/Icon';
 import { PlanAction } from '../components/PlanAction';
@@ -39,16 +39,32 @@ export function Lesson({ id }: { id: string }) {
   const member = state.member!;
   const series = seriesById(lesson.seriesId)!;
   const suit = suitById(lesson.suit);
+
+  // Not filmed yet: nothing to watch or answer. Jack still gets the full page, to attach the video.
+  if (!member.isAdmin && !isFilmed(state.filmed, lesson.id)) {
+    return (
+      <div className="stack-16">
+        <p className="eyebrow">{suit.symbol} {series.joker ? `${suit.name} Joker` : `${rankName(series.rank)} of ${suit.name}`} · {series.title}</p>
+        <h1 className="display-l">{lesson.title}</h1>
+        <p className="muted">I'm filming this one now. It'll be in the Deck as soon as it's ready.</p>
+        <Link to="/deck" className="btn btn--outline self-start">Back to the Deck</Link>
+      </div>
+    );
+  }
+
   const needs = unlockedBy(lesson);
   const plan = needs === 'open' ? 'deck' : needs;
   const pitch = {
     deck: ['This lesson is part of the Full Deck.', 'Open Hand gets one free lesson in every suit. The Full Deck unlocks the first five cards of every suit (Ace to 5) as they\'re dealt, plus the Mirror and the Table.'],
     ace: ['This lesson is part of Ace.', 'Ace unlocks every card up to King in all four suits as they\'re dealt, plus a 45-minute 1:1 call with me every month.'],
-    royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit, plus a 1:1 call with me every week. There are five places.'],
+    royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit as they\'re filmed, plus a 1:1 call with me every week. There are five places.'],
   }[plan];
   const complete = state.completed.includes(lesson.id);
   const bookmarked = state.saved.includes(lesson.id);
-  const next = nextLesson(lesson);
+  // Up next: the next lesson in this series that's out (Jack sees the very next one).
+  const next = member.isAdmin
+    ? nextLesson(lesson)
+    : series.lessons.find((l) => l.number > lesson.number && isFilmed(state.filmed, l.id));
   const hasText = draft.trim().length > 0;
   const length = [...draft.trim()].length;
   const tooLongToShare = length > TABLE_LIMIT;
