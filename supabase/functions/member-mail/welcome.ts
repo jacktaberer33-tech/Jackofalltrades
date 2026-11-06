@@ -117,8 +117,8 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <li><strong>Then book your weekly calls</strong> in Your 1:1 in the app, up to four weeks ahead. You get first pick of times.</li>
       </ol>
       <p><strong>Voice notes between calls:</strong> send them whenever. I'll reply within one working day, Monday to Friday. It isn't an emergency line.</p>
-      <p><strong>Your Joker lessons</strong>, two in every suit, are unlocked now.</p>
-      ${button(`${SITE}/#/deck`, 'See your Jokers')}
+      <p><strong>Your Joker lessons</strong>, two in every suit and only for Royal Flush, land in the Deck as I film them.</p>
+      ${button(`${SITE}/#/deck`, 'Open the Deck')}
       ${fridayLine}`),
   };
 }

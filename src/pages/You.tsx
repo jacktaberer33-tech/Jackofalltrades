@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LESSONS, ROYAL_PLACES, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
 import { PlanAction } from '../components/PlanAction';
-import { effectiveTier, isPaying, useStore, type AdminReferralRow, type Referral } from '../store';
+import { effectiveTier, isPaying, useStore, type AdminReferralRow, type Referral, isFilmed } from '../store';
 import { referralLink } from '../referral';
 import { Link, useRouter } from '../router';
 import { Avatar, SuitMark } from '../components/Cards';
@@ -38,7 +38,7 @@ export function You() {
         <h2 id="progress-title" className="display-s">Your progress</h2>
         <div className="card stack-12">
           {SUITS.map((s) => {
-            const mine = LESSONS.filter((l) => l.suit === s.id && canWatch(effectiveTier(member), l));
+            const mine = LESSONS.filter((l) => l.suit === s.id && isFilmed(state.filmed, l.id) && canWatch(effectiveTier(member), l));
             const total = mine.length;
             const done = mine.filter((l) => state.completed.includes(l.id)).length;
             return (
