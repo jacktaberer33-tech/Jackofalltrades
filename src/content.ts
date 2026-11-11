@@ -142,7 +142,7 @@ const RECORDED: Series[] = [
     ['My training week, unfiltered', 13, 'Every session from a real week, including the ones I skipped and why.', 'What does your real week look like, not the one you planned?'],
   ]),
   series('diamonds', 'A', 'worth', "Charging what you're worth", [
-    ['The number that makes you wince', 10, 'Say your price out loud. If it does not make you wince a little, it is probably too low.', "What do you believe you're worth?"],
+    ["What's your time worth?", 10, "Money and time are tied together. What an hour of your life really costs, why most people never work it out, and why I believe everybody has worth.", "What do you believe you're worth?"],
     ['Raising your prices', 11, 'How to tell existing clients, and why most of them will not leave.', 'Who are you discounting for, and does it actually help either of you?'],
     ['Saying no to bad money', 9, 'Some work costs you more than it pays. Learning to spot it before you say yes.', 'Which piece of work costs you more than it pays?'],
   ]),
