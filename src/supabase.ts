@@ -28,6 +28,8 @@ export interface ProfileRow {
   subscription_status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
+  /** 1 to 50 for founding members. Missing until the founding-numbers migration is applied. */
+  founding_number?: number | null;
 }
 
 export interface PostRow {

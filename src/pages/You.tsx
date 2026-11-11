@@ -1,3 +1,4 @@
+import { FoundingCard } from '../components/FoundingCard';
 import { useEffect, useState } from 'react';
 import { LESSONS, ROYAL_PLACES, SUITS, TIERS, TIER_RANK, canWatch, lessonById, suitById, tierById, type Tier } from '../content';
 import { PAYMENTS_LIVE } from '../config';
@@ -30,6 +31,8 @@ export function You() {
           <p className="muted small">{member.isAdmin ? 'Jack (admin)' : tierById(member.tier).name} · member since {joined}</p>
         </div>
       </header>
+
+      <FoundingCard />
 
       {member.isAdmin && <Members />}
       {member.isAdmin && <FridayTableLink />}

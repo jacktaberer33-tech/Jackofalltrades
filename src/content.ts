@@ -127,7 +127,7 @@ const RECORDED: Series[] = [
     ['Working when nobody is watching', 12, 'Self-employed means nobody checks. The routines that keep me honest.', 'What would your week look like if nobody was checking?'],
   ]),
   series('clubs', 'A', 'seek-discomfort', 'Seek discomfort', [
-    ['Why I go looking for it', 11, "Comfort isn't the enemy. Never choosing anything else is.", 'When did you last choose the harder option when nobody was watching?'],
+    ['Why I go looking for it', 12, "Comfort isn't the enemy. Never choosing anything else is.", 'When did you last choose the harder option when nobody was watching?'],
     ['The second hour', 14, "The first hour of anything hard runs on adrenaline. The second hour is where you find out what you believe about yourself. This week: what I do when I want to stop, and why I don't trust the voice that says that's enough.", "What are you avoiding because it's uncomfortable, not because it's wrong?"],
     ['Cold starts', 9, 'Starting before you feel ready, every single time. Readiness turns up halfway through.', 'What are you waiting to feel ready for?'],
     ['Knowing when to stop', 12, 'Discomfort on purpose is different from damage. How I tell the two apart.', "Where are you pushing through something you should be listening to?"],
@@ -142,7 +142,7 @@ const RECORDED: Series[] = [
     ['My training week, unfiltered', 13, 'Every session from a real week, including the ones I skipped and why.', 'What does your real week look like, not the one you planned?'],
   ]),
   series('diamonds', 'A', 'worth', "Charging what you're worth", [
-    ['The number that makes you wince', 10, 'Say your price out loud. If it does not make you wince a little, it is probably too low.', "What would you charge if you weren't scared of the answer?"],
+    ['The number that makes you wince', 10, 'Say your price out loud. If it does not make you wince a little, it is probably too low.', "What do you believe you're worth?"],
     ['Raising your prices', 11, 'How to tell existing clients, and why most of them will not leave.', 'Who are you discounting for, and does it actually help either of you?'],
     ['Saying no to bad money', 9, 'Some work costs you more than it pays. Learning to spot it before you say yes.', 'Which piece of work costs you more than it pays?'],
   ]),

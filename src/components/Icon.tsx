@@ -5,6 +5,7 @@ const PATHS = {
   video: <><rect x="2" y="6" width="14" height="12" rx="2" /><path d="m16 10 6-3v10l-6-3z" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   check: <path d="M5 12.5 10 17l9-10" />,
+  play: <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" />,
   chevronLeft: <path d="m15 6-6 6 6 6" />,
   chevronRight: <path d="m9 6 6 6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,

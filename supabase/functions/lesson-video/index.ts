@@ -2,6 +2,9 @@
 // includes it. The lesson's Bunny video id and the plan it needs live in public.lesson_videos, which
 // members can't read, so a video can't be found or played without passing this check.
 //
+// One exception: a request with { preview: true } needs no sign-in and gets a link for the single free
+// lesson flagged front_page in lesson_videos, so visitors can watch it on the join page.
+//
 // Bunny library settings: turn on "Embed view token authentication" (so a bare embed link won't
 // play), and list the site's domains under Allowed domains.
 // Secrets (Supabase → Edge Functions → Secrets): BUNNY_LIBRARY_ID, BUNNY_TOKEN_KEY (the library's
@@ -21,6 +24,8 @@ const TIER_RANK: Record<string, number> = { open: 0, deck: 1, ace: 2, royal: 3 }
 const PLAN_NAME: Record<string, string> = { open: 'Open Hand', deck: 'the Full Deck', ace: 'Ace', royal: 'Royal Flush' };
 /** Long enough to pause and come back to a lesson; short enough that a copied link soon stops working. */
 const LINK_SECONDS = 3 * 60 * 60;
+/** The front-page lesson's link: long enough to watch it through once. */
+const PREVIEW_SECONDS = 60 * 60;
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -38,12 +43,29 @@ Deno.serve(async (req) => {
   });
 
   try {
+    const { lessonId, preview } = (await req.json().catch(() => ({}))) as { lessonId?: unknown; preview?: unknown };
+
+    // The front-page lesson: anyone may watch it, signed in or not. Only ever the one flagged lesson.
+    if (preview === true) {
+      const { data: front, error: frontError } = await admin
+        .from('lesson_videos').select('lesson_id, video_id').eq('front_page', true).eq('min_tier', 'open').maybeSingle();
+      if (frontError) throw frontError;
+      if (!front || !libraryId || !tokenKey) return json({ status: 'none' });
+      const expires = Math.floor(Date.now() / 1000) + PREVIEW_SECONDS;
+      const signature = await sha256Hex(tokenKey + front.video_id + expires);
+      const params = new URLSearchParams({ token: signature, expires: String(expires), autoplay: 'true', preload: 'true', responsive: 'true' });
+      return json({
+        status: 'ready',
+        lessonId: front.lesson_id,
+        url: `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${front.video_id}?${params}`,
+      });
+    }
+
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     const { data: auth, error: authError } = await admin.auth.getUser(token);
     const user = auth?.user;
     if (authError || !user) return json({ error: 'Sign in to watch lessons.' }, 401);
 
-    const { lessonId } = (await req.json().catch(() => ({}))) as { lessonId?: unknown };
     if (typeof lessonId !== 'string' || !/^[a-z0-9-]{1,80}$/.test(lessonId)) return json({ error: 'Unknown lesson.' }, 400);
 
     const [{ data: profile }, { data: video, error: videoError }] = await Promise.all([

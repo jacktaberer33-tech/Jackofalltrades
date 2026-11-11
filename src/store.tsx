@@ -25,6 +25,8 @@ export interface Member {
   requestedTerm: Term | null;
   isAdmin: boolean;
   joinedAt: number;
+  /** 1 to 50 for the first 50 people who joined a paid plan; null for everyone else. */
+  foundingNumber: number | null;
   /** Stripe subscription, when they pay for a plan. */
   billing: {
     hasAccount: boolean;
@@ -137,6 +139,7 @@ const toMember = (p: ProfileRow, email: string, meta?: Record<string, unknown>):
   requestedTerm: termOf(meta?.requested_term),
   isAdmin: p.is_admin,
   joinedAt: Date.parse(p.created_at),
+  foundingNumber: p.founding_number ?? null,
   billing: {
     hasAccount: !!p.stripe_customer_id,
     status: p.subscription_status,
@@ -458,6 +461,12 @@ function useStoreValue() {
       }
       if (data?.status === 'none') return { status: 'none' };
       return { status: 'error', message: "The video didn't load. Refresh to try again." };
+    },
+    /** The one free lesson that plays on the join page, for visitors who aren't signed in. Null if there isn't one. */
+    async frontLesson(): Promise<{ lessonId: string; url: string } | null> {
+      const { data, error } = await supabase.functions.invoke('lesson-video', { body: { preview: true } });
+      if (error || data?.status !== 'ready' || typeof data.url !== 'string' || typeof data.lessonId !== 'string') return null;
+      return { lessonId: data.lessonId, url: data.url };
     },
     async toggleComplete(lessonId: string) {
       const wasDone = stateRef.current.completed.includes(lessonId);

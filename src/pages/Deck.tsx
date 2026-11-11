@@ -5,6 +5,7 @@ import { Link } from '../router';
 import { MiniCard, SuitMark } from '../components/Cards';
 import { Icon } from '../components/Icon';
 import { PageHeader, SuitFilter } from '../components/AppShell';
+import { DealCard } from '../components/DealCard';
 
 export function Deck() {
   const { state } = useStore();
@@ -18,7 +19,7 @@ export function Deck() {
 
   return (
     <div className="stack-20">
-      <PageHeader title="The Deck" sub="Four suits, thirteen cards each, Ace to King. Every card is a series of lessons." />
+      <PageHeader title="The Deck" sub="Four suits, thirteen cards each, Ace to King. Every card is a series of lessons." aside={<DealCard />} />
       <SuitFilter value={filter} onChange={setFilter} />
 
       {SUITS.filter((s) => filter === 'all' || filter === s.id).map((suit) => {
