@@ -8,6 +8,7 @@ import { CardFace, LogoMark } from '../components/Cards';
 import { SiteFooter } from '../components/SiteFooter';
 import { Icon } from '../components/Icon';
 import { AuthSheet, type AuthMode } from '../components/AuthSheet';
+import { FrontLesson } from '../components/FrontLesson';
 import { pendingRef } from '../referral';
 
 // Captured before Supabase tidies the address bar: true when this visit came from a sign-up confirmation link.
@@ -167,6 +168,8 @@ export function Landing() {
           </div>
         </div>
       </section>
+
+      <FrontLesson onJoin={() => join('open')} />
 
       <section id="how" className="band band--surface">
         <div className="wrap stack-48">

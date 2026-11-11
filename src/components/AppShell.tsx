@@ -36,7 +36,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="shell__main">
-        <main className="page">{children}</main>
+        {/* Keyed by page, so each page fades in as you arrive. */}
+        <main key={route.name === 'lesson' ? `lesson-${route.id}` : route.name} className="page page-enter">{children}</main>
       </div>
 
       <nav className="tabbar" aria-label="Main">
