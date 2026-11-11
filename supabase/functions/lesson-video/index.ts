@@ -1,7 +1,9 @@
 // Hands a signed-in member a short-lived Bunny Stream player link for one lesson, if their plan
-// includes it. One exception: a request with { preview: true } needs no sign-in and gets a link for the
-// single free lesson flagged front_page in lesson_videos, so visitors can watch it on the join page. The lesson's Bunny video id and the plan it needs live in public.lesson_videos, which
+// includes it. The lesson's Bunny video id and the plan it needs live in public.lesson_videos, which
 // members can't read, so a video can't be found or played without passing this check.
+//
+// One exception: a request with { preview: true } needs no sign-in and gets a link for the single free
+// lesson flagged front_page in lesson_videos, so visitors can watch it on the join page.
 //
 // Bunny library settings: turn on "Embed view token authentication" (so a bare embed link won't
 // play), and list the site's domains under Allowed domains.
