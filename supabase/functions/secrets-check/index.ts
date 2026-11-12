@@ -29,32 +29,28 @@ Deno.serve(async (req) => {
     bunnyTokenKey: { set: !!token, length: token.length, hadSpaces: token !== (Deno.env.get('BUNNY_TOKEN_KEY') ?? '') },
   };
 
-  const { data: video } = await admin.from('lesson_videos').select('lesson_id, video_id').limit(1).maybeSingle();
-  if (video && library && token) {
-    const expires = Math.floor(Date.now() / 1000) + 600;
-    const sig = await sha256Hex(token + video.video_id + expires);
-    const base = `https://iframe.mediadelivery.net/embed/${library}/${video.video_id}`;
+  // Every attached video: does the signed link play, and is a bare link refused?
+  const { data: videos } = await admin.from('lesson_videos').select('lesson_id, video_id').order('lesson_id').limit(40);
+  if (videos?.length && library && token) {
     // Bunny can answer 200 with an error page, so look at what each page says as well as its status.
-    // A made-up video id shows what "not in this library" looks like, for comparison.
     const probe = async (url: string) => {
       const r = await fetch(url, { headers: { Referer: 'https://jackofalltrades.life/' } });
       const html = await r.text();
       const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '').trim().slice(0, 80);
-      return {
-        status: r.status,
-        title,
-        bytes: html.length,
-        saysDenied: /access denied|forbidden|token|unauthori[sz]ed|not allowed/i.test(title + html.slice(0, 4000)) && !/<video/i.test(html),
-        saysNotFound: /not found|does not exist|404/i.test(title),
-        hasPlayer: /<video|playerjs|plyr|hls/i.test(html),
-      };
+      return { status: r.status, title, bytes: html.length };
     };
+    const expires = Math.floor(Date.now() / 1000) + 600;
+    const embed = (id: string) => `https://iframe.mediadelivery.net/embed/${library}/${id}`;
+    const signed = async (id: string) => `${embed(id)}?token=${await sha256Hex(token + id + expires)}&expires=${expires}`;
     const bogus = crypto.randomUUID();
     report.bunnyPlayback = {
-      lesson: video.lesson_id,
-      signedLink: await probe(`${base}?token=${sig}&expires=${expires}`),
-      unsignedLink: await probe(base),
-      madeUpVideo: await probe(`https://iframe.mediadelivery.net/embed/${library}/${bogus}?token=${await sha256Hex(token + bogus + expires)}&expires=${expires}`),
+      // A made-up video id shows what "not in this library" looks like, for comparison.
+      madeUpVideo: await probe(await signed(bogus)),
+      lessons: await Promise.all(videos.map(async (v) => ({
+        lesson: v.lesson_id,
+        signedLink: await probe(await signed(v.video_id)),
+        unsignedLink: await probe(embed(v.video_id)),
+      }))),
     };
   }
   return json(report);
