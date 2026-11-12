@@ -29,16 +29,29 @@ Deno.serve(async (req) => {
     bunnyTokenKey: { set: !!token, length: token.length, hadSpaces: token !== (Deno.env.get('BUNNY_TOKEN_KEY') ?? '') },
   };
 
-  const { data: video } = await admin.from('lesson_videos').select('lesson_id, video_id').limit(1).maybeSingle();
-  if (video && library && token) {
+  // Every attached video: does the signed link play, and is a bare link refused?
+  const { data: videos } = await admin.from('lesson_videos').select('lesson_id, video_id').order('lesson_id').limit(40);
+  if (videos?.length && library && token) {
+    // Bunny can answer 200 with an error page, so look at what each page says as well as its status.
+    const probe = async (url: string) => {
+      const r = await fetch(url, { headers: { Referer: 'https://jackofalltrades.life/' } });
+      const html = await r.text();
+      const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '').trim().slice(0, 80);
+      return { status: r.status, title, bytes: html.length };
+    };
     const expires = Math.floor(Date.now() / 1000) + 600;
-    const sig = await sha256Hex(token + video.video_id + expires);
-    const base = `https://iframe.mediadelivery.net/embed/${library}/${video.video_id}`;
-    const signed = await fetch(`${base}?token=${sig}&expires=${expires}`, { headers: { Referer: 'https://jackofalltrades.life/' } });
-    const unsigned = await fetch(base, { headers: { Referer: 'https://jackofalltrades.life/' } });
-    await signed.body?.cancel();
-    await unsigned.body?.cancel();
-    report.bunnyPlayback = { lesson: video.lesson_id, signedLink: signed.status, unsignedLink: unsigned.status };
+    const embed = (id: string) => `https://iframe.mediadelivery.net/embed/${library}/${id}`;
+    const signed = async (id: string) => `${embed(id)}?token=${await sha256Hex(token + id + expires)}&expires=${expires}`;
+    const bogus = crypto.randomUUID();
+    report.bunnyPlayback = {
+      // A made-up video id shows what "not in this library" looks like, for comparison.
+      madeUpVideo: await probe(await signed(bogus)),
+      lessons: await Promise.all(videos.map(async (v) => ({
+        lesson: v.lesson_id,
+        signedLink: await probe(await signed(v.video_id)),
+        unsignedLink: await probe(embed(v.video_id)),
+      }))),
+    };
   }
   return json(report);
 });
