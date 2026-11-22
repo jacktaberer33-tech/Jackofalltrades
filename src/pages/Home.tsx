@@ -96,7 +96,7 @@ export function Home() {
       ) : (
         <section className="card card--edge stack-6">
           <p className="strong">You're on the list for {tierById(waitingFor).name}.</p>
-          <p className="small muted">Payments open soon and founding members get moved up first. Until then you're on Open Hand: the first lesson of every suit, and you can read the Table.</p>
+          <p className="small muted">Payments open soon and founding members get moved up first. Until then you're on Open Hand: my first lesson, Seek discomfort, and you can read the Table.</p>
         </section>
       ))}
 
