@@ -64,7 +64,7 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <p>Welcome in. You're on Open Hand, which is free for as long as you like.</p>
         <p><strong>Here's what's yours:</strong></p>
         <ul style="padding-left:20px">
-          <li style="margin-bottom:8px"><strong>My first lesson, Seek discomfort.</strong> Who I am, why I go looking for discomfort, and what this whole thing is about.</li>
+          <li style="margin-bottom:8px"><strong>My first lesson, Seek discomfort.</strong> Who I am and why I go looking for discomfort.</li>
           <li style="margin-bottom:8px"><strong>The Table, to read.</strong> Members being honest about the stuff most people keep quiet.</li>
           <li><strong>A monthly email from me</strong>, with one lesson, one question and what's coming up.</li>
         </ul>
