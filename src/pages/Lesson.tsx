@@ -55,7 +55,7 @@ export function Lesson({ id }: { id: string }) {
   const needs = unlockedBy(lesson);
   const plan = needs === 'open' ? 'deck' : needs;
   const pitch = {
-    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets one free lesson in every suit. The Full Deck unlocks the first five cards of every suit (Ace to 5) as they\'re dealt, plus the Mirror and the Table.'],
+    deck: ['This lesson is part of the Full Deck.', 'Open Hand gets my first lesson free. The Full Deck unlocks the first five cards of every suit (Ace to 5) as they\'re dealt, plus the Mirror and the Table.'],
     ace: ['This lesson is part of Ace.', 'Ace unlocks every card up to King in all four suits as they\'re dealt, plus a 45-minute 1:1 call with me every month.'],
     royal: ['This is a Joker lesson, only for Royal Flush.', 'Royal Flush gets two Joker lessons in every suit as they\'re filmed, plus a 1:1 call with me every week. There are five places.'],
   }[plan];
@@ -228,7 +228,7 @@ function VideoAdmin({ lesson, attached, onSaved }: { lesson: LessonInfo; attache
       </summary>
       <div className="stack-10">
         <p className="small muted">
-          Watchable by {plan === 'open' ? 'everyone, free (the free lesson in this suit)' : `${tierById(plan).name} and above`}.
+          Watchable by {plan === 'open' ? 'everyone, free (the one Open Hand lesson)' : `${tierById(plan).name} and above`}.
           {attached && <> Bunny video <span className="mono">{attached}</span>.</>}
         </p>
         <label htmlFor={`bunny-${lesson.id}`} className="label">{attached ? 'Replace with another Bunny video' : 'Bunny video ID'}</label>

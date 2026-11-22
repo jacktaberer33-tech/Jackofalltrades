@@ -64,12 +64,12 @@ export function welcomeEmail(tier: Plan, name: string, friday: string): { subjec
         <p>Welcome in. You're on Open Hand, which is free for as long as you like.</p>
         <p><strong>Here's what's yours:</strong></p>
         <ul style="padding-left:20px">
-          <li style="margin-bottom:8px"><strong>One full lesson in every suit.</strong> Hearts, Spades, Clubs and Diamonds: relationships, work, body and money.</li>
+          <li style="margin-bottom:8px"><strong>My first lesson, Seek discomfort.</strong> Who I am, why I go looking for discomfort, and what this whole thing is about.</li>
           <li style="margin-bottom:8px"><strong>The Table, to read.</strong> Members being honest about the stuff most people keep quiet.</li>
           <li><strong>A monthly email from me</strong>, with one lesson, one question and what's coming up.</li>
         </ul>
-        <p><strong>Where to start:</strong> pick the suit that makes you squirm a bit, watch its free lesson and answer the Mirror question at the end. Nobody sees your answer but you.</p>
-        ${button(`${SITE}/#/deck`, 'Watch your first lesson')}
+        <p><strong>Where to start:</strong> watch it and answer the Mirror question at the end. Nobody sees your answer but you.</p>
+        ${button(`${SITE}/#/lesson/clubs-seek-discomfort-1`, 'Watch your first lesson')}
         <p><strong>When you want more:</strong> the Full Deck is £19 a month. It's the first five cards of every suit, a seat at the Table to post and reply, and a live Friday Table with me every month. Founding members keep that price for as long as they stay.</p>
         <p>No rush. Start with one lesson.</p>`),
     };

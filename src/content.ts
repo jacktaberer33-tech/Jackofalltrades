@@ -27,7 +27,7 @@ export interface Lesson {
   minutes: number;
   summary: string;
   mirror: string;
-  /** The cheapest plan that unlocks it (the first lesson of each suit is also free, see isFreeLesson). */
+  /** The cheapest plan that unlocks it (one lesson is also free for Open Hand, see isFreeLesson). */
   minTier: Tier;
   /** Joker lessons: two extra in each suit, only for Royal Flush. */
   joker: boolean;
@@ -184,10 +184,12 @@ export const seriesById = (id: string) => SERIES.find((s) => s.id === id);
 /** The lesson shown as "this week's hand" on Home. */
 export const FEATURED_LESSON_ID = 'clubs-seek-discomfort-2';
 
-/** Open Hand (free) members get the first lesson of each suit's Ace. */
+/** The one lesson Open Hand (free) members can watch: Jack's first, where he introduces himself. */
+export const FREE_LESSON_ID = 'clubs-seek-discomfort-1';
+
+/** Open Hand (free) members get one lesson only, FREE_LESSON_ID. Every other lesson needs a paid plan. */
 export function isFreeLesson(lesson: Lesson): boolean {
-  const ace = SERIES.find((s) => s.suit === lesson.suit && s.rank === 'A');
-  return ace?.lessons[0]?.id === lesson.id;
+  return lesson.id === FREE_LESSON_ID;
 }
 
 export function canWatch(tier: Tier, lesson: Lesson): boolean {
@@ -234,7 +236,7 @@ export const TIERS: TierInfo[] = [
     price: 'Free',
     per: '',
     pitch: "Start here and see if it's for you.",
-    perks: ['Weekly lesson clips on Instagram', 'One full lesson from each suit', 'A monthly email from me'],
+    perks: ['Weekly lesson clips on Instagram', 'My first lesson, Seek discomfort, free', 'A monthly email from me'],
     options: [],
   },
   {
