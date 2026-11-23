@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { SUITS, lessonById, suitById, tierById, type SuitId, type Tier } from '../content';
+import { SUITS, TIER_RANK, lessonById, suitById, tierById, type SuitId, type Tier } from '../content';
 import { LEGAL } from '../config';
-import { canPost, useStore, type Post, type Reply } from '../store';
+import { canPost, useStore, type LessonVideo, type Post, type Reply } from '../store';
 import { Avatar, SuitMark, HostTag } from '../components/Cards';
 import { Icon } from '../components/Icon';
 import { PageHeader, SuitFilter } from '../components/AppShell';
 import { PlanAction } from '../components/PlanAction';
+import { VideoAdmin } from '../components/VideoAdmin';
 import { timeAgo } from '../dates';
 
 export function Table() {
@@ -50,6 +51,8 @@ export function Table() {
   return (
     <div className="stack-16">
       <PageHeader title="The Table" sub="Members only. Be honest. Be kind." />
+
+      <TableWelcome />
 
       {canPost(member) ? (
         <form className="composer" onSubmit={submit}>
@@ -96,6 +99,63 @@ export function Table() {
       )}
       {feed.map((p) => <PostCard key={p.id} post={p} plan={planOf.get(p.authorId)} />)}
     </div>
+  );
+}
+
+/** The Table's welcome video, stored with the lesson videos under this id. Full Deck and up. */
+const WELCOME_VIDEO_ID = 'table-welcome';
+const WELCOME_PLAN: Tier = 'deck';
+
+/**
+ * Jack's welcome to the Table, at the top of the page: what the Table is and how the Friday Table works.
+ * Full Deck members and up see it once Jack has attached it (Open Hand gets only the one free lesson, so
+ * they see nothing here). Jack sees a box to attach or replace it.
+ */
+function TableWelcome() {
+  const { state, actions } = useStore();
+  const member = state.member!;
+  const canWatch = member.isAdmin || TIER_RANK[member.tier] >= TIER_RANK[WELCOME_PLAN];
+  const [video, setVideo] = useState<LessonVideo | null>(null);
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (!canWatch) return;
+    let live = true;
+    setVideo(null);
+    void actions.lessonVideo(WELCOME_VIDEO_ID).then((v) => { if (live) setVideo(v); });
+    return () => { live = false; };
+  }, [canWatch, actions, key]);
+
+  if (!canWatch) return null;
+  const ready = video?.status === 'ready' ? video : null;
+
+  return (
+    <>
+      {ready && (
+        <section className="stack-8" aria-labelledby="table-welcome-title">
+          <p id="table-welcome-title" className="eyebrow">Start here · Welcome to the Table</p>
+          <div className="video">
+            <iframe
+              className="video__player"
+              src={ready.url}
+              title="Welcome to the Table, from Jack"
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+        </section>
+      )}
+      {video?.status === 'error' && member.isAdmin && <p className="small" role="alert">{video.message}</p>}
+      {member.isAdmin && (
+        <VideoAdmin
+          id={WELCOME_VIDEO_ID}
+          plan={WELCOME_PLAN}
+          label="Table welcome video"
+          attached={ready ? ready.videoId : null}
+          onSaved={() => setKey((k) => k + 1)}
+        />
+      )}
+    </>
   );
 }
 
