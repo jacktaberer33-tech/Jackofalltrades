@@ -233,7 +233,7 @@ export function Landing() {
                     {t.id === 'ace' && <span className="pill">Limited places</span>}
                     {t.id === 'royal' && (
                       <span className={`pill ${royalFull ? '' : 'pill--accent'}`}>
-                        {royalLeft === null ? `${ROYAL_PLACES} places only` : royalFull ? 'Full · waitlist open' : `${royalLeft} of ${ROYAL_PLACES} places left`}
+                        {royalLeft === null ? `${ROYAL_PLACES} places only` : royalFull ? 'Full · waitlist open' : `Just ${royalLeft} ${royalLeft === 1 ? 'place' : 'places'} left`}
                       </span>
                     )}
                   </div>
