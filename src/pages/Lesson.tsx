@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy, type Lesson as LessonInfo } from '../content';
+import { canWatch, lessonById, nextLesson, rankName, seriesById, suitById, tierById, unlockedBy } from '../content';
 import { TABLE_LIMIT, canPost, effectiveTier, isFilmed, useStore, type LessonVideo } from '../store';
 import { Link, useRouter } from '../router';
 import { Icon } from '../components/Icon';
 import { PlanAction } from '../components/PlanAction';
+import { VideoAdmin } from '../components/VideoAdmin';
 
 export function Lesson({ id }: { id: string }) {
   const { state, actions } = useStore();
@@ -130,7 +131,9 @@ export function Lesson({ id }: { id: string }) {
 
       {member.isAdmin && (
         <VideoAdmin
-          lesson={lesson}
+          id={lesson.id}
+          plan={unlockedBy(lesson)}
+          label="Lesson video"
           attached={video?.status === 'ready' ? video.videoId : null}
           onSaved={() => setVideoKey((k) => k + 1)}
         />
@@ -194,63 +197,5 @@ export function Lesson({ id }: { id: string }) {
         </section>
       )}
     </div>
-  );
-}
-
-const BUNNY_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-
-/**
- * Jack only: attach this lesson's Bunny Stream video. Paste the video's ID, or any Bunny link or embed
- * code that contains it. The plan it needs is taken from the deck, so members only get what they pay for.
- */
-function VideoAdmin({ lesson, attached, onSaved }: { lesson: LessonInfo; attached: string | null; onSaved: () => void }) {
-  const { actions } = useStore();
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const found = text.match(BUNNY_ID)?.[0].toLowerCase() ?? null;
-  const plan = unlockedBy(lesson);
-
-  const save = async (videoId: string | null) => {
-    setBusy(true);
-    const err = await actions.setLessonVideo(lesson.id, videoId, plan);
-    setBusy(false);
-    if (!err) {
-      setText('');
-      onSaved();
-    }
-  };
-
-  return (
-    <details className="card admin-box" open={!attached}>
-      <summary className="admin-box__summary">
-        <span className="eyebrow">Lesson video · only you see this</span>
-        <span className="small muted">{attached ? 'Attached' : 'No video yet'}</span>
-      </summary>
-      <div className="stack-10">
-        <p className="small muted">
-          Watchable by {plan === 'open' ? 'everyone, free (the one Open Hand lesson)' : `${tierById(plan).name} and above`}.
-          {attached && <> Bunny video <span className="mono">{attached}</span>.</>}
-        </p>
-        <label htmlFor={`bunny-${lesson.id}`} className="label">{attached ? 'Replace with another Bunny video' : 'Bunny video ID'}</label>
-        <input
-          id={`bunny-${lesson.id}`}
-          className="input"
-          placeholder="Paste the video ID or its embed link"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {text && !found && <p className="small" role="alert">That doesn't contain a Bunny video ID. It looks like 1a2b3c4d-…</p>}
-        <div className="row-wrap">
-          <button type="button" className="btn btn--ink btn--sm" disabled={!found || busy} onClick={() => save(found)}>
-            {attached ? 'Replace video' : 'Attach video'}
-          </button>
-          {attached && (
-            <button type="button" className="btn btn--outline btn--sm" disabled={busy} onClick={() => save(null)}>Remove video</button>
-          )}
-        </div>
-      </div>
-    </details>
   );
 }
