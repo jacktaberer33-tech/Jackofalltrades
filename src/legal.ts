@@ -39,7 +39,7 @@ const privacy: LegalDoc = {
         {
           ul: [
             `I collect only what the membership needs in order to work.`,
-            `I never sell your information, and the site has no advertising, analytics or tracking cookies.`,
+            `I never sell your information, and the site has no advertising or tracking cookies. I count visits with a tool that uses no cookies, so I can see which of my posts bring people here.`,
             `Your Mirror answers are private to you unless you choose to share one at the Table.`,
             `You can close your account yourself, at any time, from the You page. Doing so deletes your account and everything in it.`,
           ],
@@ -78,6 +78,8 @@ const privacy: LegalDoc = {
         { p: `So I can run the membership, the site emails me short notices: a daily round-up of who posted or replied at the Table (first names and which suit, not what you wrote), and alerts when I need to act, such as someone joining the Royal Flush waitlist or cancelling within 14 days. Lawful basis: my legitimate interest in running the membership well and replying to members promptly.` },
         { h3: 'Technical information' },
         { p: `When you visit the site, the companies that host it automatically record technical details such as your IP address, browser type and the time of each request. These logs are used to keep the service secure, stop abuse and fix problems. Lawful basis: legitimate interests.` },
+        { h3: 'Visit statistics' },
+        { p: `When you visit the site, a small script from Metricool counts the visit: which pages you view, and roughly which country you're in, worked out from your IP address at the time. It doesn't use cookies, and Metricool doesn't store your IP address. I only see totals, not who visited. I use them to understand which of my posts bring people to the site. Lawful basis: my legitimate interest in understanding how people find the site. You can object at any time by emailing me, or block the script with any standard content blocker.` },
         { h3: 'Calls' },
         { p: `I may record 1:1 calls for training purposes, so that I can review them and get better at what I do, but only with your agreement. I'll ask at the start of each call, and if you'd rather I didn't, I won't, and nothing about the call changes. Because calls often touch on personal matters, I rely on your explicit consent, which you can withdraw at any time, including after the call, and I'll delete the recording. Recordings are kept private to me, are never shared or published, and are deleted within 90 days.` },
         { p: `If a live Friday Table session is ever recorded, I'll say so clearly at the start, and you can keep your camera and microphone off.` },
@@ -126,6 +128,7 @@ const privacy: LegalDoc = {
             `Google Fonts: provides the typefaces the site uses. When a page loads, your browser fetches them from Google's servers, which can see your IP address.`,
             `Google (Gmail and Google Meet): my business email inbox, where your emails to me and the notices described above arrive; and Google Meet, which hosts the Friday Table and the Ace group calls. Google's own privacy policy applies while you're on a call.`,
             `Bunny.net (BunnyWay d.o.o., Ljubljana, Slovenia): streams the lesson videos. It sees your IP address when a video plays.`,
+            `Metricool (based in Spain): counts visits to the site, as described under "Visit statistics" above. It doesn't use cookies or keep your IP address.`,
             `A video-calling service for 1:1 calls. It's named in every call invitation, and its own privacy policy applies while you're on a call.`,
           ],
         },
@@ -138,7 +141,7 @@ const privacy: LegalDoc = {
       id: 'transfers',
       title: 'Information that leaves the UK',
       blocks: [
-        { p: `Some of these companies, including Google, are based in, or have support teams in, the United States. Where your information is transferred outside the UK, it's protected by the UK–US data bridge or by the ICO's approved international data transfer agreements. Both require it to be protected to the standard UK law expects. Bunny is based in the EU, which UK law recognises as protecting personal information to that standard.` },
+        { p: `Some of these companies, including Google, are based in, or have support teams in, the United States. Where your information is transferred outside the UK, it's protected by the UK–US data bridge or by the ICO's approved international data transfer agreements. Both require it to be protected to the standard UK law expects. Bunny and Metricool are based in the EU, which UK law recognises as protecting personal information to that standard.` },
       ],
     },
     {
@@ -189,11 +192,12 @@ const privacy: LegalDoc = {
       id: 'cookies',
       title: 'Cookies and browser storage',
       blocks: [
-        { p: `This site doesn't use advertising cookies, analytics or tracking pixels.` },
+        { p: `This site doesn't use advertising cookies, analytics cookies or tracking pixels.` },
+        { p: `To count visits, the site loads a small script from Metricool (see "Visit statistics" above). It doesn't set any cookies. If you'd rather not be counted, you can block it with any standard content blocker, or email me to object.` },
         { p: `It uses one essential item of browser storage. When you sign in, a secure session token is saved in your browser's local storage so that you stay signed in as you move around the app. It's strictly necessary to provide the service you've asked for, so the law doesn't require a consent banner for it. It's removed when you sign out.` },
         { p: `When you pay, Stripe's checkout and billing pages set their own cookies to process the payment and prevent fraud. Those are covered by [Stripe's cookie policy](https://stripe.com/gb/legal/cookies-policy).` },
         { p: `Lesson videos play in Bunny's video player, which loads from Bunny's servers. Anything it uses to play the video is covered by [Bunny's privacy policy](https://bunny.net/privacy).` },
-        { p: `If I ever add anything that isn't strictly necessary, I'll ask for your consent first and update this policy.` },
+        { p: `If I ever add cookies, or anything else that stores information in your browser, that isn't strictly necessary, I'll ask for your consent first and update this policy.` },
       ],
     },
     {
